@@ -1,26 +1,173 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* ── Colors ── */
+  --color-obsidian-950: #080809;
+  --color-obsidian-900: #0e0f11;
+  --color-obsidian-800: #141518;
+  --color-obsidian-700: #1c1d21;
+  --color-obsidian-600: #26272d;
+  --color-obsidian-500: #34353c;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-gold-50: #fdf9ed;
+  --color-gold-100: #f9edca;
+  --color-gold-200: #f2d88a;
+  --color-gold-300: #ebbe45;
+  --color-gold-400: #d4a017;
+  --color-gold-500: #b8860b;
+  --color-gold-600: #966c08;
+  --color-gold-700: #74520a;
+  --color-gold-800: #5a3f0f;
+  --color-gold-900: #4a3310;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --color-ash-50: #f7f7f6;
+  --color-ash-100: #edede9;
+  --color-ash-200: #d8d7d0;
+  --color-ash-300: #b9b8ae;
+  --color-ash-400: #95948a;
+  --color-ash-500: #7a7970;
+  --color-ash-600: #636259;
+  --color-ash-700: #514f48;
+  --color-ash-800: #44433d;
+  --color-ash-900: #3b3a35;
+
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+
+  /* ── Fonts ── */
+  --font-display: var(--font-cormorant), Georgia, serif;
+  --font-mono: var(--font-dm-mono), Menlo, monospace;
+  --font-sans: var(--font-geist), system-ui, sans-serif;
+
+  /* ── Font sizes ── */
+  --font-size-2xs: 0.625rem;
+  --line-height-2xs: 1rem;
+
+  /* ── Background images ── */
+  --background-image-gold-gradient: linear-gradient(
+    135deg,
+    #d4a017 0%,
+    #ebbe45 50%,
+    #b8860b 100%
+  );
+  --background-image-dark-gradient: linear-gradient(
+    180deg,
+    #0e0f11 0%,
+    #080809 100%
+  );
+  --background-image-card-shine: linear-gradient(
+    135deg,
+    rgba(212, 160, 23, 0.08) 0%,
+    transparent 60%
+  );
+
+  /* ── Shadows ── */
+  --shadow-gold-sm: 0 0 0 1px rgba(212, 160, 23, 0.3);
+  --shadow-gold-md:
+    0 0 0 1px rgba(212, 160, 23, 0.5), 0 4px 24px rgba(212, 160, 23, 0.08);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-panel: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  /* ── Animations ── */
+  --animate-fade-up: fadeUp 0.5s ease forwards;
+  --animate-fade-in: fadeIn 0.4s ease forwards;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-pulse-gold: pulseGold 2s ease-in-out infinite;
+
+  @keyframes fadeUp {
+    0% {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes pulseGold {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(212, 160, 23, 0);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(212, 160, 23, 0.12);
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-obsidian-950 text-ash-100;
+    font-feature-settings:
+      "kern" 1,
+      "liga" 1,
+      "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-obsidian-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-obsidian-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-obsidian-500;
+  }
+
+  ::selection {
+    @apply bg-gold-400/20 text-gold-200;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-600);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-obsidian-700) 25%,
+      var(--color-obsidian-600) 50%,
+      var(--color-obsidian-700) 75%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
 }
