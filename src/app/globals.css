@@ -35,16 +35,25 @@
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
 
-  /* ── Fonts ── */
+  /* ── Fonts ──
+     Tailwind v4: --font-* → font-* utilities (font-display, font-sans, font-mono)
+     next/font injects --font-cormorant etc. at runtime on <html>.
+     The var() reference here resolves correctly at runtime.
+  ── */
   --font-display: var(--font-cormorant), Georgia, serif;
-  --font-mono: var(--font-dm-mono), Menlo, monospace;
-  --font-sans: var(--font-geist), system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), "Courier New", monospace;
+  --font-sans: var(--font-cormorant), Georgia, serif;
 
-  /* ── Font sizes ── */
+  /* ── Font sizes ──
+     --font-size-* → text-* utilities
+     Optionally pair with --line-height-* of the same name
+  ── */
   --font-size-2xs: 0.625rem;
   --line-height-2xs: 1rem;
 
-  /* ── Background images ── */
+  /* ── Background images ──
+     --background-image-* → bg-* utilities
+  ── */
   --background-image-gold-gradient: linear-gradient(
     135deg,
     #d4a017 0%,
@@ -62,34 +71,38 @@
     transparent 60%
   );
 
-  /* ── Shadows ── */
+  /* ── Shadows ──
+     --shadow-* → shadow-* utilities
+  ── */
   --shadow-gold-sm: 0 0 0 1px rgba(212, 160, 23, 0.3);
   --shadow-gold-md:
     0 0 0 1px rgba(212, 160, 23, 0.5), 0 4px 24px rgba(212, 160, 23, 0.08);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.4);
   --shadow-panel: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-  /* ── Animations ── */
+  /* ── Animations ──
+     --animate-* → animate-* utilities
+  ── */
   --animate-fade-up: fadeUp 0.5s ease forwards;
   --animate-fade-in: fadeIn 0.4s ease forwards;
   --animate-shimmer: shimmer 2s linear infinite;
   --animate-pulse-gold: pulseGold 2s ease-in-out infinite;
 
   @keyframes fadeUp {
-    0% {
+    from {
       opacity: 0;
       transform: translateY(16px);
     }
-    100% {
+    to {
       opacity: 1;
       transform: translateY(0);
     }
   }
   @keyframes fadeIn {
-    0% {
+    from {
       opacity: 0;
     }
-    100% {
+    to {
       opacity: 1;
     }
   }
@@ -113,7 +126,9 @@
 }
 
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
   }
 
@@ -123,6 +138,7 @@
 
   body {
     @apply bg-obsidian-950 text-ash-100;
+    font-family: var(--font-cormorant), Georgia, serif;
     font-feature-settings:
       "kern" 1,
       "liga" 1,
@@ -136,17 +152,24 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-obsidian-900;
+    background-color: var(--color-obsidian-900);
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-obsidian-600 rounded-full;
+    background-color: var(--color-obsidian-600);
+    border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-obsidian-500;
+    background-color: var(--color-obsidian-500);
   }
 
+  /* ✅ No @apply with opacity modifiers — use raw CSS */
   ::selection {
-    @apply bg-gold-400/20 text-gold-200;
+    background-color: color-mix(
+      in srgb,
+      var(--color-gold-400) 20%,
+      transparent
+    );
+    color: var(--color-gold-200);
   }
 
   :focus-visible {
