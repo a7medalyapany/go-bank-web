@@ -4,10 +4,12 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import Form from "next/form";
 import { Contact, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+
 import { registerAction } from "@/lib/actions/auth";
 import { ActionState } from "@/lib/validation/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { AmbientGlow } from "@/components/ui/AmbientGlow";
 
 const INITIAL: ActionState = { status: "idle" };
 
@@ -29,9 +31,7 @@ export default function RegisterForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-obsidian-950 px-4 py-12">
       {/* Ambient glow */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/2 top-1/2 size-125 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-400/3 blur-[100px]" />
-      </div>
+      <AmbientGlow className="fixed" />
 
       <div className="relative w-full max-w-sm animate-fade-up">
         {/* Header */}
@@ -79,6 +79,10 @@ export default function RegisterForm() {
             label="Username"
             placeholder="john_doe_123"
             autoComplete="username"
+            required
+            minLength={3}
+            maxLength={50}
+            pattern="[a-z0-9_]+"
             prefix={<User className="h-4 w-4" />}
             hint="Lowercase letters, digits, underscores"
             error={fieldError("username")}
@@ -91,6 +95,9 @@ export default function RegisterForm() {
             label="Full name"
             placeholder="John Doe"
             autoComplete="name"
+            required
+            minLength={2}
+            maxLength={100}
             prefix={<Contact className="h-4 w-4" />}
             error={fieldError("full_name")}
           />
@@ -100,6 +107,7 @@ export default function RegisterForm() {
             label="Email"
             placeholder="john@example.com"
             autoComplete="email"
+            required
             prefix={<Mail className="h-4 w-4" />}
             error={fieldError("email")}
           />
@@ -109,6 +117,8 @@ export default function RegisterForm() {
             type={showPassword ? "text" : "password"}
             placeholder="Min 8 characters"
             autoComplete="new-password"
+            required
+            minLength={8}
             prefix={<Lock className="h-4 w-4" />}
             suffix={
               <button
