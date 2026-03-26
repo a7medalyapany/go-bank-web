@@ -4,10 +4,12 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import Form from "next/form";
 import { Eye, EyeOff, Lock, User } from "lucide-react";
+
 import { loginAction } from "@/lib/actions/auth";
 import { ActionState } from "@/lib/validation/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { AmbientGlow } from "@/components/ui/AmbientGlow";
 
 const INITIAL: ActionState = { status: "idle" };
 
@@ -23,9 +25,7 @@ export default function LoginForm({ registered }: { registered?: boolean }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-obsidian-950 px-4 py-12">
       {/* Ambient glow */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/2 top-1/2 size-125 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-400/3 blur-[100px]" />
-      </div>
+      <AmbientGlow className="fixed" />
 
       <div className="relative w-full max-w-sm animate-fade-up">
         {/* Header */}
@@ -74,6 +74,7 @@ export default function LoginForm({ registered }: { registered?: boolean }) {
             label="Username"
             placeholder="john_doe_123"
             autoComplete="username"
+            required
             prefix={<User className="h-4 w-4" />}
             error={fieldError("username")}
           />
@@ -83,6 +84,7 @@ export default function LoginForm({ registered }: { registered?: boolean }) {
             type={showPassword ? "text" : "password"}
             placeholder="Your password"
             autoComplete="current-password"
+            required
             prefix={<Lock className="h-4 w-4" />}
             suffix={
               <button
