@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Shield, Zap, Globe } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { AmbientGlow } from "@/components/ui/AmbientGlow";
 
 const FEATURES = [
   {
@@ -54,10 +55,10 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="relative flex min-h-screen flex-col items-center justify-center px-6 pt-20 text-center">
-        {/* Background glow */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-1/2 top-1/3 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-400/4 blur-[120px]" />
-        </div>
+        <AmbientGlow
+          className="absolute overflow-hidden"
+          glowClassName="top-1/3 h-[600px] w-[600px] bg-gold-400/4 blur-[120px]"
+        />
 
         {/* Grid overlay */}
         <div
