@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getAuthSession } from "@/lib/session";
 import RegisterForm from "@/components/forms/register-form";
 
-// TODO: swap this with actual session check
-async function getSession() {
-  return null;
-}
-
 export const metadata: Metadata = {
-  title: "Open an account",
+  title: "Open an Account",
   description: "Create your GoBank account in under a minute.",
 };
 
 export default async function RegisterPage() {
-  const session = await getSession();
+  const session = await getAuthSession();
   if (session) redirect("/dashboard");
 
   return <RegisterForm />;
