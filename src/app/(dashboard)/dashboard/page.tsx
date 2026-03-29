@@ -1,17 +1,10 @@
-import { redirect } from "next/navigation";
-import { getAuthSession } from "@/lib/session";
-
-function buildLoginHref(callbackUrl: string) {
-  const params = new URLSearchParams({ callbackUrl });
-  return `/login?${params.toString()}`;
-}
+import { requireAuth } from "@/lib/auth";
 
 export default async function DashboardPage() {
-  const session = await getAuthSession();
-
-  if (!session) {
-    redirect(buildLoginHref("/dashboard"));
-  }
+  // requireAuth() centralises session verification + redirect logic.
+  // It calls getAuthSession() which decrypts the cookie, handles token renewal,
+  // and redirects to /login if the session is missing or dead.
+  const session = await requireAuth("/dashboard");
 
   return (
     <div className="min-h-screen bg-obsidian-950 px-6 py-10">
