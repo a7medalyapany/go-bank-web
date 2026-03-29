@@ -1,27 +1,31 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getAuthSession } from "@/lib/session";
 import LoginForm from "@/components/forms/login-form";
 
-// TODO: swap this with actual session check
-async function getSession() {
-  return null;
-}
-
 export const metadata: Metadata = {
-  title: "Login",
+  title: "Sign In",
   description: "Sign in to your GoBank account.",
 };
 
-interface LoginPageProps {
-  searchParams: Promise<{ registered?: string }>;
+interface Props {
+  searchParams: Promise<{
+    registered?: string;
+    callbackUrl?: string;
+  }>;
 }
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const session = await getSession();
+export default async function LoginPage({ searchParams }: Props) {
+  // Real session check — not just cookie presence
+  const session = await getAuthSession();
   if (session) redirect("/dashboard");
 
   const params = await searchParams;
-  const justRegistered = params.registered === "1";
 
-  return <LoginForm registered={justRegistered} />;
+  return (
+    <LoginForm
+      registered={params.registered === "1"}
+      callbackUrl={params.callbackUrl ?? "/dashboard"}
+    />
+  );
 }
