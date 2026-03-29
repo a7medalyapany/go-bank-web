@@ -39,6 +39,11 @@ export const metadata: Metadata = {
     description: "Secure multi-currency banking with atomic transfers.",
     type: "website",
   },
+  // Prevent search engines from indexing auth/private routes
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export const viewport: Viewport = {
@@ -52,12 +57,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      data-scroll-behavior="smooth"
-      className="dark"
-    >
+    <html lang="en" suppressHydrationWarning className="dark">
       <body
         className={`${cormorant.variable} ${dmMono.variable} ${geist.variable} bg-obsidian-950 text-ash-100 antialiased`}
       >
