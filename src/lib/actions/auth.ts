@@ -4,25 +4,69 @@ import { redirect } from "next/navigation";
 import {
   registerSchema,
   loginSchema,
+  extractFieldErrors,
   type ActionState,
 } from "@/lib/validation/auth";
 import { saveSession, destroySession } from "@/lib/session";
-import type { GoLoginResponse, GoRegisterResponse } from "@/lib/api/client";
+import type { GoLoginResponse, GoRegisterResponse } from "@/lib/api/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
-// gRPC-Gateway error shape: { "message": "...", "code": N }
-function parseGrpcError(body: unknown): string {
-  if (typeof body === "object" && body !== null && "message" in body) {
-    return (body as { message: string }).message;
+// ─── Shared fetch timeout (ms)
+// Server Actions shouldn't hang — 8 s is generous for a local Go backend.
+const FETCH_TIMEOUT = 8_000;
+
+// ─── Shared fetch helper for PUBLIC endpoints (no auth required)
+// These are called before a session exists so they can't use goApi / apiFetch.
+async function publicFetch<T>(
+  path: string,
+  init: RequestInit,
+): Promise<
+  { ok: true; data: T } | { ok: false; status: number; message: string }
+> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      return {
+        ok: false,
+        status: res.status,
+        message: body.message ?? `Request failed (${res.status})`,
+      };
+    }
+
+    const data: T = await res.json();
+    return { ok: true, data };
+  } catch (err) {
+    if ((err as Error).name === "AbortError") {
+      return {
+        ok: false,
+        status: 408,
+        message: "Request timed out. Please try again.",
+      };
+    }
+    return {
+      ok: false,
+      status: 0,
+      message: "Network error — could not reach the server.",
+    };
+  } finally {
+    clearTimeout(timer);
   }
-  return "Something went wrong. Please try again.";
 }
 
 // ─── Register
 // POST /v1/users — public, no auth.
 // Go backend dispatches an email verification job via Redis/Asynq after creation.
-// User must then login separately (register returns user, NOT tokens).
+// User must login separately — register returns the user object, NOT tokens.
 export async function registerAction(
   _prev: ActionState,
   formData: FormData,
@@ -38,48 +82,32 @@ export async function registerAction(
     return {
       status: "error",
       message: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<
-        string,
-        string[]
-      >,
+      fieldErrors: extractFieldErrors(parsed.error),
     };
   }
 
-  try {
-    const res = await fetch(`${API_BASE}/v1/users`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed.data),
-      cache: "no-store",
-    });
+  const result = await publicFetch<GoRegisterResponse>("/v1/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(parsed.data),
+  });
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      // gRPC AlreadyExists = HTTP 409 / sometimes 403 via gRPC-gateway
-      const message =
-        res.status === 409 || res.status === 403
-          ? "Username or email is already taken."
-          : parseGrpcError(body);
-      return { status: "error", message };
-    }
-
-    const _user: GoRegisterResponse = await res.json(); // eslint-disable-line @typescript-eslint/no-unused-vars
-  } catch {
-    return {
-      status: "error",
-      message: "Network error — could not reach the server.",
-    };
+  if (!result.ok) {
+    const message =
+      result.status === 409 || result.status === 403
+        ? "Username or email is already taken."
+        : result.message;
+    return { status: "error", message };
   }
 
   // Verification email was dispatched async by Go backend.
-  // Redirect to login with a "registered" flag so the login page shows
-  // a banner telling the user to check their email.
+  // Redirect to login with registered=1 so the page shows the verify-email banner.
   redirect("/login?registered=1");
 }
 
 // ─── Login
 // POST /v1/auth/login — public, no auth.
-// callbackUrl is bound via .bind(null, callbackUrl) in the form component.
+// callbackUrl is bound via loginAction.bind(null, callbackUrl) in the form component.
 export async function loginAction(
   callbackUrl: string,
   _prev: ActionState,
@@ -94,46 +122,32 @@ export async function loginAction(
     return {
       status: "error",
       message: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<
-        string,
-        string[]
-      >,
+      fieldErrors: extractFieldErrors(parsed.error),
     };
   }
 
-  let data: GoLoginResponse;
+  const result = await publicFetch<GoLoginResponse>("/v1/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(parsed.data),
+  });
 
-  try {
-    const res = await fetch(`${API_BASE}/v1/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed.data),
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const message =
-        res.status === 401
-          ? "Invalid username or password."
-          : res.status === 404
-            ? "No account found with that username."
-            : parseGrpcError(body);
-      return { status: "error", message };
-    }
-
-    data = await res.json();
-  } catch {
-    return {
-      status: "error",
-      message: "Network error — could not reach the server.",
-    };
+  if (!result.ok) {
+    const message =
+      result.status === 401
+        ? "Invalid username or password."
+        : result.status === 404
+          ? "No account found with that username."
+          : result.message;
+    return { status: "error", message };
   }
+
+  const data = result.data;
 
   // ── Persist encrypted session cookie
-  // iron-session seals everything into one httpOnly cookie with AES-256-CBC.
-  // Access token, refresh token, expiry timestamps, session_id — none of it
-  // is ever accessible from client JavaScript.
+  // iron-session seals everything into one httpOnly AES-256-CBC cookie.
+  // Access token, refresh token, expiry timestamps — none of it is accessible
+  // from client JavaScript.
   await saveSession({
     user: {
       username: data.user.username,
@@ -148,7 +162,7 @@ export async function loginAction(
     refresh_token_expires_at: data.refreshTokenExpiresAt,
   });
 
-  // Guard against open redirect — only accept relative paths
+  // Guard against open redirect — only accept relative paths.
   const safe =
     callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
       ? callbackUrl
@@ -159,8 +173,8 @@ export async function loginAction(
 
 // ─── Logout
 // Destroys the local session cookie.
-// Note: GoBank backend doesn't expose a dedicated logout/revoke endpoint yet
-// If added later, call it here before destroySession().
+// If the Go backend adds a POST /v1/auth/logout endpoint later,
+// call goApi.logout() here before destroySession().
 export async function logoutAction(): Promise<void> {
   await destroySession();
   redirect("/login");
