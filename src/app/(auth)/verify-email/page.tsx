@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/Button";
 
 export const metadata: Metadata = {
   title: "Verify Email",
+  // Prevent search engines from indexing token-bearing verification URLs.
+  // e.g. /verify-email?email_id=xxx&secret_code=yyy should never be indexed.
+  robots: { index: false, follow: false },
 };
 
 interface Props {
@@ -25,12 +28,15 @@ export default async function VerifyEmailPage({ searchParams }: Props) {
   }
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+
   let result: { success: boolean; message: string };
 
   try {
     const res = await fetch(
       `${API_BASE}/v1/verify_email?email_id=${encodeURIComponent(email_id)}&secret_code=${encodeURIComponent(secret_code)}`,
-      { method: "GET", cache: "no-store" },
+      { method: "GET", cache: "no-store", signal: controller.signal },
     );
 
     if (!res.ok) {
@@ -41,16 +47,18 @@ export default async function VerifyEmailPage({ searchParams }: Props) {
           body.message ?? "Verification failed. The link may have expired.",
       };
     } else {
-      result = {
-        success: true,
-        message: "Your email has been verified!",
-      };
+      result = { success: true, message: "Your email has been verified!" };
     }
-  } catch {
+  } catch (err) {
     result = {
       success: false,
-      message: "Network error - could not reach the server. Please try again.",
+      message:
+        (err as Error).name === "AbortError"
+          ? "Request timed out. Please try again."
+          : "Network error — could not reach the server. Please try again.",
     };
+  } finally {
+    clearTimeout(timer);
   }
 
   return <VerifyResult success={result.success} message={result.message} />;
