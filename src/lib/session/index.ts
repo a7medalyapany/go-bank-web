@@ -2,17 +2,17 @@ import { cookies } from "next/headers";
 import { getIronSession, type IronSession } from "iron-session";
 import { SESSION_OPTIONS, type SessionData } from "./config";
 
-// ─── Raw session (iron-session handle)
-// In Next.js 16, cookies() returns Promise — iron-session v8 accepts it directly.
+// ─── Raw session handle
+// In Next.js 16, cookies() returns a Promise — iron-session v8 accepts it directly.
 export async function getSession(): Promise<IronSession<SessionData>> {
   const cookieStore = await cookies();
   return getIronSession<SessionData>(cookieStore, SESSION_OPTIONS);
 }
 
 // ─── Authenticated session snapshot
-// Returns null → not logged in.
-// Returns SessionData → logged in (with access token guaranteed fresh or best-effort).
-// Handles silent token rotation transparently — callers never think about it.
+// Returns null  → not logged in / session expired.
+// Returns SessionData → logged in (access token guaranteed fresh or best-effort).
+// Handles silent token rotation transparently — callers never deal with it.
 export async function getAuthSession(): Promise<SessionData | null> {
   const session = await getSession();
 
@@ -22,43 +22,43 @@ export async function getAuthSession(): Promise<SessionData | null> {
   const accessExpiry = new Date(session.access_token_expires_at).getTime();
   const refreshExpiry = new Date(session.refresh_token_expires_at).getTime();
 
-  // Refresh token dead → wipe cookie, force re-login
+  // Refresh token dead → wipe cookie and force re-login
   if (now >= refreshExpiry) {
     session.destroy();
+    await session.save(); // flush the cleared cookie header
     return null;
   }
 
-  // Access token still has > 60 s left → return as-is (the common path)
+  // Access token still has > 60 s left → fast path
   if (accessExpiry - now > 60_000) {
     return toSnapshot(session);
   }
 
   // ── Silent access-token rotation
-  // POST /v1/auth/renew_access
-  // Body: { refresh_token: string }
+  // POST /v1/auth/renew_access — { refresh_token } → { accessToken, accessTokenExpiresAt }
+  // The refresh token is NOT rotated on renew (matches the Go session-store model).
   const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
+
   try {
     const res = await fetch(`${API_BASE}/v1/auth/renew_access`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: session.refresh_token }),
+      signal: controller.signal,
       cache: "no-store",
     });
 
     if (!res.ok) {
-      // Backend rejected the refresh (revoked session, expired, etc.) → logout
+      // Backend rejected the refresh (revoked, expired, etc.) → force logout
       session.destroy();
+      await session.save();
       return null;
     }
 
-    // Go backend /v1/auth/renew_access response shape:
-    // { access_token, access_token_expires_at }
-    // Note: refresh token is NOT rotated on renew — same refresh token is reused
-    // until it expires. This matches the Go session-store model.
-    const data: {
-      accessToken: string;
-      accessTokenExpiresAt: string;
-    } = await res.json();
+    const data: { accessToken: string; accessTokenExpiresAt: string } =
+      await res.json();
 
     session.access_token = data.accessToken;
     session.access_token_expires_at = data.accessTokenExpiresAt;
@@ -66,27 +66,36 @@ export async function getAuthSession(): Promise<SessionData | null> {
 
     return toSnapshot(session);
   } catch {
-    // Network blip — don't destroy session, let the upstream call fail naturally
+    // Network blip — don't destroy the session, let upstream calls fail naturally.
     return toSnapshot(session);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-// ─── Persist a new session (called once after login)
+// ─── Persist a new session (called once after a successful login)
 export async function saveSession(data: SessionData): Promise<void> {
   const session = await getSession();
-  Object.assign(session, data);
+  // Assign only known SessionData keys to avoid sealing unexpected fields.
+  session.user = data.user;
+  session.session_id = data.session_id;
+  session.access_token = data.access_token;
+  session.access_token_expires_at = data.access_token_expires_at;
+  session.refresh_token = data.refresh_token;
+  session.refresh_token_expires_at = data.refresh_token_expires_at;
   await session.save();
 }
 
 // ─── Destroy session (logout)
-// session.destroy() is sync in iron-session v8.
-// The cleared cookie header is written into the response automatically.
+// session.destroy() clears the in-memory data synchronously.
+// session.save() flushes the cleared Set-Cookie header into the response.
 export async function destroySession(): Promise<void> {
   const session = await getSession();
   session.destroy();
+  await session.save();
 }
 
-// ─── Private helper
+// ─── Private: plain-object snapshot from iron-session proxy
 function toSnapshot(s: IronSession<SessionData>): SessionData {
   return {
     user: s.user,
@@ -97,4 +106,3 @@ function toSnapshot(s: IronSession<SessionData>): SessionData {
     session_id: s.session_id,
   };
 }
-

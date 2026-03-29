@@ -132,6 +132,8 @@
     box-sizing: border-box;
   }
 
+  /* scroll-behavior here instead of data-scroll-behavior on <html> to avoid
+     hydration mismatches from browser extensions mutating html attributes. */
   html {
     scroll-behavior: smooth;
   }
@@ -162,7 +164,7 @@
     background-color: var(--color-obsidian-500);
   }
 
-  /* ✅ No @apply with opacity modifiers — use raw CSS */
+  /* No @apply with opacity modifiers — use raw CSS */
   ::selection {
     background-color: color-mix(
       in srgb,
