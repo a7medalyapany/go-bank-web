@@ -2,7 +2,6 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import Form from "next/form";
 import { Contact, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 
 import { registerAction } from "@/lib/actions/auth";
@@ -73,7 +72,7 @@ export default function RegisterForm() {
           Both are needed. next/form alone (like v0's snippet) has no
           error feedback — it silently swallows failures.
         */}
-        <Form action={formAction} className="space-y-4">
+        <form action={formAction} className="space-y-4">
           <Input
             name="username"
             label="Username"
@@ -147,7 +146,7 @@ export default function RegisterForm() {
           >
             {pending ? "Creating account…" : "Create account"}
           </Button>
-        </Form>
+        </form>
 
         <p className="mt-6 text-center text-sm text-ash-600">
           Already have an account?{" "}
@@ -162,3 +161,4 @@ export default function RegisterForm() {
     </div>
   );
 }
+

@@ -2,25 +2,38 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import Form from "next/form";
 import { Eye, EyeOff, Lock, User } from "lucide-react";
-
 import { loginAction } from "@/lib/actions/auth";
-import { ActionState } from "@/lib/validation/auth";
+import type { ActionState } from "@/lib/validation/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { AmbientGlow } from "@/components/ui/AmbientGlow";
 
 const INITIAL: ActionState = { status: "idle" };
 
-export default function LoginForm({ registered }: { registered?: boolean }) {
-  const [state, formAction, pending] = useActionState(loginAction, INITIAL);
+interface Props {
+  registered?: boolean;
+  callbackUrl?: string;
+}
+
+export default function LoginForm({
+  registered,
+  callbackUrl = "/dashboard",
+}: Props) {
+  // Bind callbackUrl as the first argument to loginAction via .bind()
+  // This is the React/Next.js canonical pattern for passing extra args to Server Actions.
+  const boundAction = loginAction.bind(null, callbackUrl);
+  const [state, formAction, pending] = useActionState(boundAction, INITIAL);
   const [showPassword, setShowPassword] = useState(false);
 
-  const fieldError = (field: string): string | undefined =>
-    state.status === "error" ? state.fieldErrors?.[field]?.[0] : undefined;
+  const fieldError = (f: string) =>
+    state.status === "error" ? state.fieldErrors?.[f]?.[0] : undefined;
 
-  const globalError = state.status === "error" ? state.message : undefined;
+  // Global error = error with no field-level breakdown
+  const globalError =
+    state.status === "error" && !Object.keys(state.fieldErrors ?? {}).length
+      ? state.message
+      : undefined;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-obsidian-950 px-4 py-12">
@@ -46,18 +59,19 @@ export default function LoginForm({ registered }: { registered?: boolean }) {
           <p className="mt-2 text-sm text-ash-500">Sign in to your account</p>
         </div>
 
-        {/* Success banner after registration */}
+        {/* Post-registration success banner — email verification dispatched async */}
         {registered && (
           <div
             role="status"
             aria-live="polite"
             className="mb-5 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
           >
-            Account created — please sign in.
+            Account created — check your inbox to verify your email, then sign
+            in.
           </div>
         )}
 
-        {/* Error banner */}
+        {/* Global error banner */}
         {globalError && (
           <div
             role="alert"
@@ -68,13 +82,12 @@ export default function LoginForm({ registered }: { registered?: boolean }) {
           </div>
         )}
 
-        <Form action={formAction} className="space-y-4">
+        <form action={formAction} className="space-y-4">
           <Input
             name="username"
             label="Username"
             placeholder="john_doe_123"
             autoComplete="username"
-            required
             prefix={<User className="h-4 w-4" />}
             error={fieldError("username")}
           />
@@ -84,14 +97,13 @@ export default function LoginForm({ registered }: { registered?: boolean }) {
             type={showPassword ? "text" : "password"}
             placeholder="Your password"
             autoComplete="current-password"
-            required
             prefix={<Lock className="h-4 w-4" />}
             suffix={
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="text-ash-500 transition-colors hover:text-ash-300"
                 aria-label={showPassword ? "Hide password" : "Show password"}
+                className="text-ash-500 transition-colors hover:text-ash-300"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -113,7 +125,7 @@ export default function LoginForm({ registered }: { registered?: boolean }) {
           >
             {pending ? "Signing in…" : "Sign in"}
           </Button>
-        </Form>
+        </form>
 
         <p className="mt-6 text-center text-sm text-ash-600">
           Don&apos;t have an account?{" "}
