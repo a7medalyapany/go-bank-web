@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { goPublicApi } from "@/lib/api/client";
 
 export const metadata: Metadata = {
   title: "Verify Email",
   // Prevent search engines from indexing token-bearing verification URLs.
-  // e.g. /verify-email?email_id=xxx&secret_code=yyy should never be indexed.
+  // e.g. /verify-email?email_id=xxx&secret_code=yyy must never be indexed.
   robots: { index: false, follow: false },
 };
 
@@ -27,41 +28,23 @@ export default async function VerifyEmailPage({ searchParams }: Props) {
     );
   }
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8_000);
+  const result = await goPublicApi.verifyEmail(email_id, secret_code);
 
-  let result: { success: boolean; message: string };
+  if (!result.ok) {
+    const message =
+      result.status === 408
+        ? "Request timed out. Please try again."
+        : result.status === 0
+          ? "Network error — could not reach the server. Please try again."
+          : (result.message ??
+            "Verification failed. The link may have expired.");
 
-  try {
-    const res = await fetch(
-      `${API_BASE}/v1/verify_email?email_id=${encodeURIComponent(email_id)}&secret_code=${encodeURIComponent(secret_code)}`,
-      { method: "GET", cache: "no-store", signal: controller.signal },
-    );
-
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { message?: string };
-      result = {
-        success: false,
-        message:
-          body.message ?? "Verification failed. The link may have expired.",
-      };
-    } else {
-      result = { success: true, message: "Your email has been verified!" };
-    }
-  } catch (err) {
-    result = {
-      success: false,
-      message:
-        (err as Error).name === "AbortError"
-          ? "Request timed out. Please try again."
-          : "Network error — could not reach the server. Please try again.",
-    };
-  } finally {
-    clearTimeout(timer);
+    return <VerifyResult success={false} message={message} />;
   }
 
-  return <VerifyResult success={result.success} message={result.message} />;
+  return (
+    <VerifyResult success={true} message="Your email has been verified!" />
+  );
 }
 
 function VerifyResult({
