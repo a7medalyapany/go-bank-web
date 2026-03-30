@@ -1,3 +1,5 @@
+import "server-only";
+
 import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/session";
 import type { SessionData } from "@/lib/session/config";
