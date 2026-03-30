@@ -1,6 +1,12 @@
+import "server-only";
+
 import { cookies } from "next/headers";
 import { getIronSession, type IronSession } from "iron-session";
 import { SESSION_OPTIONS, type SessionData } from "./config";
+
+// ─── Shared constants
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const RENEW_TIMEOUT_MS = 5_000;
 
 // ─── Raw session handle
 // In Next.js 16, cookies() returns a Promise — iron-session v8 accepts it directly.
@@ -10,7 +16,7 @@ export async function getSession(): Promise<IronSession<SessionData>> {
 }
 
 // ─── Authenticated session snapshot
-// Returns null  → not logged in / session expired.
+// Returns null       → not logged in / session expired.
 // Returns SessionData → logged in (access token guaranteed fresh or best-effort).
 // Handles silent token rotation transparently — callers never deal with it.
 export async function getAuthSession(): Promise<SessionData | null> {
@@ -25,11 +31,11 @@ export async function getAuthSession(): Promise<SessionData | null> {
   // Refresh token dead → wipe cookie and force re-login
   if (now >= refreshExpiry) {
     session.destroy();
-    await session.save(); // flush the cleared cookie header
+    await session.save(); // flush the cleared Set-Cookie header
     return null;
   }
 
-  // Access token still has > 60 s left → fast path
+  // Access token still has > 60 s left → fast path, no network call
   if (accessExpiry - now > 60_000) {
     return toSnapshot(session);
   }
@@ -37,9 +43,8 @@ export async function getAuthSession(): Promise<SessionData | null> {
   // ── Silent access-token rotation
   // POST /v1/auth/renew_access — { refresh_token } → { accessToken, accessTokenExpiresAt }
   // The refresh token is NOT rotated on renew (matches the Go session-store model).
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_000);
+  const timer = setTimeout(() => controller.abort(), RENEW_TIMEOUT_MS);
 
   try {
     const res = await fetch(`${API_BASE}/v1/auth/renew_access`, {
@@ -67,6 +72,7 @@ export async function getAuthSession(): Promise<SessionData | null> {
     return toSnapshot(session);
   } catch {
     // Network blip — don't destroy the session, let upstream calls fail naturally.
+    // The user's next request will retry renewal automatically.
     return toSnapshot(session);
   } finally {
     clearTimeout(timer);
