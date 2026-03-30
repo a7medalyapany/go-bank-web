@@ -1,5 +1,9 @@
 "use server";
 
+// server-only is implicit via "use server" but the explicit import provides
+// a build-time error if this module is ever accidentally imported client-side.
+import "server-only";
+
 import { redirect } from "next/navigation";
 import {
   registerSchema,
@@ -11,13 +15,12 @@ import { saveSession, destroySession } from "@/lib/session";
 import type { GoLoginResponse, GoRegisterResponse } from "@/lib/api/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-
-// ─── Shared fetch timeout (ms)
-// Server Actions shouldn't hang — 8 s is generous for a local Go backend.
 const FETCH_TIMEOUT = 8_000;
 
 // ─── Shared fetch helper for PUBLIC endpoints (no auth required)
-// These are called before a session exists so they can't use goApi / apiFetch.
+// Returns a discriminated union — callers handle errors without try/catch.
+// Kept here (rather than goPublicApi) because these actions need to map
+// specific HTTP status codes to user-facing ActionState messages.
 async function publicFetch<T>(
   path: string,
   init: RequestInit,
