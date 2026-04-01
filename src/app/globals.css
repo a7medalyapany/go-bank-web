@@ -20,6 +20,17 @@
   --color-gold-800: #5a3f0f;
   --color-gold-900: #4a3310;
 
+  --color-silver-50: #f8f8fb;
+  --color-silver-100: #ebeef5;
+  --color-silver-200: #d8dde8;
+  --color-silver-300: #bbc4d3;
+  --color-silver-400: #97a3b8;
+  --color-silver-500: #77849d;
+  --color-silver-600: #5e697d;
+  --color-silver-700: #4b5465;
+  --color-silver-800: #353c48;
+  --color-silver-900: #222833;
+
   --color-ash-50: #f7f7f6;
   --color-ash-100: #edede9;
   --color-ash-200: #d8d7d0;
@@ -69,6 +80,19 @@
     135deg,
     rgba(212, 160, 23, 0.08) 0%,
     transparent 60%
+  );
+  --background-image-silver-gradient: linear-gradient(
+    135deg,
+    #f8f8fb 0%,
+    #cfd6e2 34%,
+    #8c98ab 65%,
+    #e7ebf2 100%
+  );
+  --background-image-metal-panel: linear-gradient(
+    135deg,
+    rgba(248, 248, 251, 0.14) 0%,
+    rgba(151, 163, 184, 0.08) 30%,
+    rgba(34, 40, 51, 0.08) 100%
   );
 
   /* ── Shadows ──
