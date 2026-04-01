@@ -2,42 +2,81 @@
 
 import { useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+
+import { AccountCard } from "@/components/dashboard/AccountCard";
+import { useDashboardHeroState } from "@/components/dashboard/DashboardHeroState";
+
 import { cn } from "@/lib/utils";
-import type { DashboardAccount } from "@/lib/dashboard-snapshot";
-import { AccountCard } from "./AccountCard";
+import type { DashboardAccountCard } from "@/lib/dashboard/view-models";
 
 interface AccountStackCarouselProps {
-  stack: DashboardAccount[];
+  stack: DashboardAccountCard[];
+  selectedId?: number;
+  onSelect?: (id: number) => void;
 }
 
-export function AccountStackCarousel({ stack }: AccountStackCarouselProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+export function AccountStackCarousel({
+  stack,
+  selectedId,
+  onSelect,
+}: AccountStackCarouselProps) {
+  const heroState = useDashboardHeroState();
+  const getIndexById = (id: number) =>
+    Math.max(
+      0,
+      stack.findIndex((account) => account.id === id),
+    );
 
-  const prev = () =>
-    setActiveIndex((i) => (i === 0 ? stack.length - 1 : i - 1));
-  const next = () =>
-    setActiveIndex((i) => (i === stack.length - 1 ? 0 : i + 1));
+  const [uncontrolledIndex, setUncontrolledIndex] = useState(0);
+  const controlledSelectedId = selectedId ?? heroState?.selectedId;
+  const activeIndex =
+    controlledSelectedId !== undefined && controlledSelectedId !== null
+      ? getIndexById(controlledSelectedId)
+      : uncontrolledIndex;
 
-  const active = stack[activeIndex];
-  const ordered = [active, ...stack.filter((_, i) => i !== activeIndex)];
+  function pick(index: number) {
+    if (selectedId === undefined && heroState?.selectedId === undefined) {
+      setUncontrolledIndex(index);
+    }
+
+    heroState?.setSelectedId(stack[index].id);
+    onSelect?.(stack[index].id);
+  }
+
+  const previous = activeIndex === 0 ? stack.length - 1 : activeIndex - 1;
+  const next = activeIndex === stack.length - 1 ? 0 : activeIndex + 1;
+  const ordered = [
+    stack[activeIndex],
+    ...stack.filter((_, index) => index !== activeIndex),
+  ];
 
   return (
-    <div className="group/carousel flex h-full flex-col justify-between gap-4">
-      <div className="relative" style={{ height: "208px" }}>
+    <div className="group/carousel flex h-full min-h-61 flex-col justify-between gap-4">
+      <div className="relative h-52">
         {ordered.slice(0, 3).map((account, index) => (
-          <AccountCard key={account.name} account={account} index={index} />
+          <AccountCard
+            key={account.id}
+            account={account}
+            index={index}
+            onClick={
+              index === 0
+                ? undefined
+                : () => pick(stack.findIndex((item) => item.id === account.id))
+            }
+          />
         ))}
       </div>
 
-      {stack.length > 1 && (
+      {stack.length > 1 ? (
         <div className="flex items-center justify-center gap-3">
           <button
-            onClick={prev}
+            type="button"
+            onClick={() => pick(previous)}
             aria-label="Previous account"
             className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-full border border-white/8 bg-white/3 text-ash-500 cursor-pointer",
-              "opacity-0 translate-x-1 transition-all duration-200",
-              "group-hover/carousel:opacity-100 group-hover/carousel:translate-x-0",
+              "flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-white/8 bg-white/3 text-ash-500",
+              "translate-x-1 opacity-0 transition-all duration-200",
+              "group-hover/carousel:translate-x-0 group-hover/carousel:opacity-100",
               "hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-ash-300",
             )}
           >
@@ -45,11 +84,12 @@ export function AccountStackCarousel({ stack }: AccountStackCarouselProps) {
           </button>
 
           <div className="flex items-center gap-2">
-            {stack.map((_, index) => (
+            {stack.map((account, index) => (
               <button
-                key={index}
-                onClick={() => setActiveIndex(index)}
-                aria-label={`Go to account ${index + 1}`}
+                key={account.id}
+                type="button"
+                onClick={() => pick(index)}
+                aria-label={`Switch to ${account.title}`}
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-300",
                   index === activeIndex
@@ -61,19 +101,20 @@ export function AccountStackCarousel({ stack }: AccountStackCarouselProps) {
           </div>
 
           <button
-            onClick={next}
+            type="button"
+            onClick={() => pick(next)}
             aria-label="Next account"
             className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-full border border-white/8 bg-white/3 text-ash-500 cursor-pointer",
-              "opacity-0 -translate-x-1 transition-all duration-200",
-              "group-hover/carousel:opacity-100 group-hover/carousel:translate-x-0",
+              "flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-white/8 bg-white/3 text-ash-500",
+              "-translate-x-1 opacity-0 transition-all duration-200",
+              "group-hover/carousel:translate-x-0 group-hover/carousel:opacity-100",
               "hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-ash-300",
             )}
           >
             <ChevronRightIcon className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

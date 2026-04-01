@@ -34,7 +34,7 @@ export interface GoLoginResponse {
 }
 
 // ── POST /v1/auth/renew_access
-// Only access token is returned — refresh token is NOT rotated.
+// Only the access token is returned — the refresh token is NOT rotated.
 export interface GoRenewAccessResponse {
   accessToken: string;
   accessTokenExpiresAt: string; // RFC 3339
@@ -47,6 +47,13 @@ export interface GoAccount {
   balance: number; // integer cents (int64) — NEVER treat as float
   currency: "USD" | "EUR" | "EGP";
   createdAt: string; // RFC 3339
+}
+
+// ── GET /v1/accounts (list) — gRPC-Gateway wraps repeated fields in an envelope.
+// The proto field name becomes the JSON key, so ListAccountsResponse { repeated Account accounts }
+// serialises to { "accounts": [...] }.
+export interface GoAccountListResponse {
+  accounts: GoAccount[];
 }
 
 // ── POST /v1/transfers

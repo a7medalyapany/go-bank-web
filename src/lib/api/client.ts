@@ -4,7 +4,12 @@
 // Unauthenticated public endpoints go through goPublicApi (no token).
 
 import { getAuthSession, destroySession } from "@/lib/session";
-import type { GoUser, GoAccount, GoTransferResult } from "@/lib/api/types";
+import type {
+  GoUser,
+  GoAccount,
+  GoAccountListResponse,
+  GoTransferResult,
+} from "@/lib/api/types";
 
 // Re-export types so callers can import from one place
 export type {
@@ -13,6 +18,7 @@ export type {
   GoLoginResponse,
   GoRenewAccessResponse,
   GoAccount,
+  GoAccountListResponse,
   GoEntry,
   GoTransferResult,
 } from "@/lib/api/types";
@@ -40,7 +46,6 @@ export class ApiError extends Error {
 }
 
 // ─── Internal: raw fetch with timeout
-// Returns the Response — callers decide how to parse.
 async function timedFetch(
   url: string,
   init: RequestInit,
@@ -61,7 +66,6 @@ async function timedFetch(
 }
 
 // ─── Core authenticated fetch
-// All errors surface as AuthError or ApiError — never raw fetch errors.
 type FetchOpts = Omit<RequestInit, "headers"> & {
   headers?: Record<string, string>;
   timeoutMs?: number;
@@ -73,28 +77,20 @@ async function apiFetch<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   const auth = await getAuthSession();
   if (!auth) throw new AuthError();
 
-  let res: Response;
-  try {
-    res = await timedFetch(
-      `${API_BASE}${path}`,
-      {
-        ...fetchOpts,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.access_token}`,
-          ...fetchOpts.headers,
-        },
-        cache: "no-store",
+  const res = await timedFetch(
+    `${API_BASE}${path}`,
+    {
+      ...fetchOpts,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.access_token}`,
+        ...fetchOpts.headers,
       },
-      timeoutMs,
-    );
-  } catch (err) {
-    // timedFetch already wraps network/timeout as ApiError — re-throw as-is
-    throw err;
-  }
+      cache: "no-store",
+    },
+    timeoutMs,
+  );
 
-  // getAuthSession() already attempted token renewal.
-  // A 401 here means the session is truly dead.
   if (res.status === 401) {
     await destroySession();
     throw new AuthError();
@@ -114,8 +110,6 @@ async function apiFetch<T>(path: string, opts: FetchOpts = {}): Promise<T> {
 }
 
 // ─── Core public fetch (no auth token)
-// Used for endpoints callable before a session exists.
-// Returns a discriminated union so callers can handle errors without try/catch.
 async function publicFetch<T>(
   path: string,
   init: RequestInit,
@@ -150,12 +144,6 @@ async function publicFetch<T>(
 
 // ─── Public API surface (no authentication required)
 export const goPublicApi = {
-  // POST /v1/users  — called in registerAction
-  // (declared here for documentation; registerAction calls publicFetch directly
-  //  because it needs the discriminated-union result shape for ActionState)
-
-  // GET /v1/verify_email?email_id=...&secret_code=...
-  // Called from the verify-email RSC page.
   verifyEmail: (emailId: string, secretCode: string) =>
     publicFetch<{ message?: string }>(
       `/v1/verify_email?email_id=${encodeURIComponent(emailId)}&secret_code=${encodeURIComponent(secretCode)}`,
@@ -181,10 +169,6 @@ export const goApi = {
       body: JSON.stringify(body),
     }),
 
-  // ── Auth
-  // POST /v1/auth/login      — PUBLIC, called in loginAction via publicFetch
-  // POST /v1/auth/renew_access — called inside session/index.ts only
-
   // ── Accounts
   createAccount: (currency: "USD" | "EUR" | "EGP") =>
     apiFetch<GoAccount>("/v1/accounts", {
@@ -192,8 +176,10 @@ export const goApi = {
       body: JSON.stringify({ currency }),
     }),
 
+  // Returns the gRPC-Gateway envelope { accounts: GoAccount[] }.
+  // Callers must unwrap — use the unwrapAccounts() helper in dashboard-snapshot.ts.
   listAccounts: (page_id = 1, page_size = 10) =>
-    apiFetch<GoAccount[]>(
+    apiFetch<GoAccountListResponse>(
       `/v1/accounts?page_id=${page_id}&page_size=${page_size}`,
     ),
 
