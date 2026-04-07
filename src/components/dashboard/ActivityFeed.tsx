@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 
 export interface ActivityItem {
+  id: number;
   title: string;
   detail: string;
   amount: string;
@@ -52,7 +53,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
                 item.direction === "credit" ? ArrowDownLeft : ArrowUpRight;
               return (
                 <div
-                  key={`${item.title}-${item.time}`}
+                  key={item.id}
                   className="flex items-start gap-4 rounded-2xl border border-white/6 bg-white/2 px-4 py-4"
                 >
                   <div
