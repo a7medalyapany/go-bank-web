@@ -20,7 +20,7 @@ export default async function DashboardPage() {
       <section className="grid min-h-0 gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         {/* Activity feed — empty state until entries API is available */}
         <div className="min-h-0 overflow-hidden">
-          <ActivityFeed items={[]} />
+          <ActivityFeed items={dashboard.activity} />
         </div>
 
         {/* Smart brief */}

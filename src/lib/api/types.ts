@@ -56,6 +56,28 @@ export interface GoAccountListResponse {
   accounts: GoAccount[];
 }
 
+export interface GoActivityEntry {
+  id: number | string;
+  accountId?: number | string;
+  account_id?: number | string;
+  amount: number | string;
+  currency: string;
+  createdAt?: string;
+  created_at?: string;
+  transferId?: number | string | null;
+  transfer_id?: number | string | null;
+  counterpartAccountId?: number | string | null;
+  counterpart_account_id?: number | string | null;
+  counterpartOwner?: string | null;
+  counterpart_owner?: string | null;
+  counterpartCurrency?: string | null;
+  counterpart_currency?: string | null;
+}
+
+export interface GoActivityEntryListResponse {
+  entries: GoActivityEntry[];
+}
+
 // ── POST /v1/transfers
 export interface GoEntry {
   id: number;

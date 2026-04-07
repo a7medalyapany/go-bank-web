@@ -8,6 +8,7 @@ import type {
   GoUser,
   GoAccount,
   GoAccountListResponse,
+  GoActivityEntryListResponse,
   GoTransferResult,
 } from "@/lib/api/types";
 
@@ -19,6 +20,8 @@ export type {
   GoRenewAccessResponse,
   GoAccount,
   GoAccountListResponse,
+  GoActivityEntry,
+  GoActivityEntryListResponse,
   GoEntry,
   GoTransferResult,
 } from "@/lib/api/types";
@@ -181,6 +184,11 @@ export const goApi = {
   listAccounts: (page_id = 1, page_size = 10) =>
     apiFetch<GoAccountListResponse>(
       `/v1/accounts?page_id=${page_id}&page_size=${page_size}`,
+    ),
+
+  listEntries: (page_id = 1, page_size = 5) =>
+    apiFetch<GoActivityEntryListResponse>(
+      `/v1/entries?page_id=${page_id}&page_size=${page_size}`,
     ),
 
   getAccount: (id: number) => apiFetch<GoAccount>(`/v1/accounts/${id}`),
