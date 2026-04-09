@@ -1,28 +1,35 @@
-import { LayoutDashboard, CreditCard, ShieldCheck } from "lucide-react";
+import type { NavIconKey } from "@/components/Sidebar/NavLink";
 
-export const NAV_ITEMS = [
+export interface NavItem {
+  href: string;
+  label: string;
+  iconKey: NavIconKey;
+  exact: boolean;
+}
+
+export const NAV_ITEMS: NavItem[] = [
   {
     href: "/dashboard",
     label: "Overview",
-    icon: LayoutDashboard,
-    active: true,
+    iconKey: "LayoutDashboard",
+    exact: true,
   },
   {
-    href: "/dashboard",
+    href: "/accounts",
     label: "Accounts",
-    icon: CreditCard,
-    active: false,
+    iconKey: "CreditCard",
+    exact: false,
   },
   {
-    href: "/dashboard",
-    label: "Security",
-    icon: ShieldCheck,
-    active: false,
+    href: "/transfers",
+    label: "Transfers",
+    iconKey: "ArrowLeftRight",
+    exact: false,
   },
   {
-    href: "/dashboard",
+    href: "/settings",
     label: "Settings",
-    icon: LayoutDashboard,
-    active: false,
+    iconKey: "Settings",
+    exact: true,
   },
 ];
