@@ -2,13 +2,14 @@ import { requireAuth } from "@/lib/auth";
 import { AmbientGlow } from "@/components/ui/AmbientGlow";
 import { AppSidebar } from "@/components/Sidebar/AppSidebar";
 
+// layout receives the @modal parallel slot alongside children
 export default async function DashboardLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  modal: React.ReactNode;
 }) {
-  // requireAuth() decrypts the session + handles token renewal.
-  // Any unauthenticated request is redirected to /login before rendering.
   const session = await requireAuth();
 
   return (
@@ -40,6 +41,9 @@ export default async function DashboardLayout({
           {children}
         </main>
       </div>
+
+      {/* Modal slot — renders the intercepted /accounts/new as an overlay */}
+      {modal}
     </div>
   );
 }
