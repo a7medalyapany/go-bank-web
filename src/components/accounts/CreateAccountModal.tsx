@@ -59,7 +59,7 @@ export function CreateAccountModal({
     dialogRef.current?.showModal();
   }, []);
 
-  // Close on ESC (native dialog handles it, we wire router.back)
+  // Close on ESC
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
@@ -67,6 +67,15 @@ export function CreateAccountModal({
     el.addEventListener("cancel", handler);
     return () => el.removeEventListener("cancel", handler);
   }, [router]);
+
+  // On success: dismiss the modal slot (router.back) then refresh the
+  // underlying /accounts page so the new card appears without a full reload.
+  useEffect(() => {
+    if (state.status === "success") {
+      router.back();
+      router.refresh();
+    }
+  }, [state.status, router]);
 
   // Close backdrop click
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
@@ -83,7 +92,6 @@ export function CreateAccountModal({
         "fixed inset-0 m-0 h-full w-full max-w-none max-h-none p-0",
         "bg-transparent backdrop:bg-obsidian-950/70 backdrop:backdrop-blur-sm",
         "open:flex open:items-center open:justify-center",
-        // animate in
         "open:animate-fade-in",
       )}
     >
@@ -142,7 +150,7 @@ export function CreateAccountModal({
                     <label
                       key={currency}
                       className={cn(
-                        "flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-all duration-200",
+                        "flex cursor-pointer items-center gap-4 mt-2 rounded-2xl border p-4 transition-all duration-200",
                         meta.colorClass,
                         "has-[:checked]:ring-2 has-[:checked]:ring-gold-500/40",
                       )}
