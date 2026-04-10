@@ -2,7 +2,6 @@
 
 import "server-only";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { goApi } from "@/lib/api/client";
 import type { ActionState } from "@/lib/validation/auth";
@@ -43,8 +42,11 @@ export async function createAccountAction(
     return { status: "error", message };
   }
 
+  // Revalidate so /accounts reflects the new account immediately.
+  // No redirect here — the modal client component handles closing via router.back()
+  // so the intercepting route is dismissed without a full navigation.
   revalidatePath("/accounts");
-  redirect("/accounts");
+  return { status: "success" };
 }
 
 export async function deleteAccountAction(
@@ -56,7 +58,6 @@ export async function deleteAccountAction(
     return { ok: true };
   } catch (err: unknown) {
     const status = (err as { status?: number })?.status;
-    // 400 often means the account has a non-zero balance
     const message =
       status === 400
         ? "Cannot delete an account with a remaining balance. Transfer funds out first."
