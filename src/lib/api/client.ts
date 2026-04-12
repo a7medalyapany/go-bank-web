@@ -10,6 +10,7 @@ import type {
   GoAccountListResponse,
   GoActivityEntryListResponse,
   GoTransferResult,
+  GoAccountLookupResponse,
 } from "@/lib/api/types";
 
 // Re-export types so callers can import from one place
@@ -24,6 +25,7 @@ export type {
   GoActivityEntryListResponse,
   GoEntry,
   GoTransferResult,
+  GoAccountLookupResponse,
 } from "@/lib/api/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
@@ -186,12 +188,18 @@ export const goApi = {
       `/v1/accounts?page_id=${page_id}&page_size=${page_size}`,
     ),
 
+  getAccount: (id: number) => apiFetch<GoAccount>(`/v1/accounts/${id}`),
+
+  // ── Account Lookup (for transfers — returns minimal public info)
+  // GET /v1/accounts/lookup?id=<id>
+  // Returns id, owner, currency — does NOT require the account to belong to caller.
+  lookupAccount: (id: number) =>
+    apiFetch<GoAccountLookupResponse>(`/v1/accounts/lookup?id=${id}`),
+
   listEntries: (page_id = 1, page_size = 5) =>
     apiFetch<GoActivityEntryListResponse>(
       `/v1/entries?page_id=${page_id}&page_size=${page_size}`,
     ),
-
-  getAccount: (id: number) => apiFetch<GoAccount>(`/v1/accounts/${id}`),
 
   updateAccount: (id: number, balance: number) =>
     apiFetch<GoAccount>(`/v1/accounts/${id}`, {

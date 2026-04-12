@@ -50,10 +50,20 @@ export interface GoAccount {
 }
 
 // ── GET /v1/accounts (list) — gRPC-Gateway wraps repeated fields in an envelope.
-// The proto field name becomes the JSON key, so ListAccountsResponse { repeated Account accounts }
-// serialises to { "accounts": [...] }.
 export interface GoAccountListResponse {
   accounts: GoAccount[];
+}
+
+// ── GET /v1/accounts/lookup — minimal public account info (for transfer destination)
+// Does NOT include balance — intentionally lightweight for recipient lookup.
+export interface GoAccountLookup {
+  id: number; // int64 serialised as string in JSON — we parse it
+  owner: string;
+  currency: string;
+}
+
+export interface GoAccountLookupResponse {
+  account: GoAccountLookup;
 }
 
 export interface GoActivityEntry {

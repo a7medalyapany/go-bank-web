@@ -5,6 +5,7 @@ import { cache } from "react";
 import { goApi } from "@/lib/api/client";
 import type { GoAccount, GoActivityEntry } from "@/lib/api/types";
 import { requireAuth } from "@/lib/auth";
+import { getAccountsSnapshot } from "@/lib/accounts/accounts-snapshot";
 import {
   buildDashboardPageViewModel,
   type DashboardActivityEntry,
@@ -12,19 +13,9 @@ import {
 
 export type { GoAccount };
 
-// ─── Unwrap gRPC-Gateway list envelope
-// Backend returns { "accounts": [...] }, NOT a bare array.
-// We handle both shapes defensively in case the gateway config changes.
-export function unwrapAccounts(raw: unknown): GoAccount[] {
-  if (Array.isArray(raw)) return raw as GoAccount[];
-  if (raw !== null && typeof raw === "object") {
-    const obj = raw as Record<string, unknown>;
-    for (const key of ["accounts", "data", "items", "result", "results"]) {
-      if (Array.isArray(obj[key])) return obj[key] as GoAccount[];
-    }
-  }
-  return [];
-}
+// ─── Re-export unwrapAccounts for backward compat
+// Some files imported this from dashboard-snapshot previously.
+export { unwrapAccounts } from "@/lib/accounts/accounts-snapshot";
 
 function getNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -108,18 +99,9 @@ export function unwrapEntries(raw: unknown): DashboardActivityEntry[] {
   return [];
 }
 
-// ─── Fetch accounts for the dashboard
-// Degrades to [] on any error — the UI handles the empty state.
-export async function fetchDashboardAccounts(): Promise<GoAccount[]> {
-  try {
-    const raw = (await goApi.listAccounts(1, 3)) as unknown;
-    return unwrapAccounts(raw);
-  } catch {
-    return [];
-  }
-}
-
-export async function fetchDashboardActivity(): Promise<DashboardActivityEntry[]> {
+export async function fetchDashboardActivity(): Promise<
+  DashboardActivityEntry[]
+> {
   try {
     const raw = (await goApi.listEntries(1, 5)) as unknown;
     return unwrapEntries(raw);
@@ -129,10 +111,14 @@ export async function fetchDashboardActivity(): Promise<DashboardActivityEntry[]
   }
 }
 
+// ─── Dashboard page data
+// Uses the shared accounts snapshot (React cache) + fetches activity.
+// Both fetches run in parallel via Promise.all.
 export const getDashboardPageData = cache(async () => {
   const session = await requireAuth("/dashboard");
-  const [accounts, activity] = await Promise.all([
-    fetchDashboardAccounts(),
+
+  const [{ accounts }, activity] = await Promise.all([
+    getAccountsSnapshot(),
     fetchDashboardActivity(),
   ]);
 
