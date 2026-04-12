@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Wallet } from "lucide-react";
 
-import { requireAuth } from "@/lib/auth";
-import { goApi } from "@/lib/api/client";
-import { unwrapAccounts } from "@/lib/dashboard/dashboard-snapshot";
+import { getAccountsSnapshot } from "@/lib/accounts/accounts-snapshot";
 import { Button } from "@/components/ui/Button";
 import { AccountListCard } from "@/components/accounts/AccountListCard";
 import { Badge } from "@/components/ui/Badge";
@@ -15,17 +13,8 @@ export const metadata: Metadata = { title: "Accounts" };
 const MAX_ACCOUNTS = 3;
 
 export default async function AccountsPage() {
-  await requireAuth("/accounts");
-
-  let accounts: Awaited<ReturnType<typeof unwrapAccounts>> = [];
-  try {
-    const raw = await goApi.listAccounts(1, 10);
-    accounts = unwrapAccounts(raw);
-  } catch {
-    accounts = [];
-  }
-
-  const canCreate = accounts.length < MAX_ACCOUNTS;
+  // getAccountsSnapshot calls requireAuth internally + is cached per request
+  const { accounts, canCreate } = await getAccountsSnapshot();
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-5">
@@ -68,8 +57,6 @@ export default async function AccountsPage() {
         {accounts.length === 0 ? (
           <EmptyState />
         ) : (
-          // grid-rows-1 ensures all cells in the single row share the same
-          // height, so GhostSlot naturally stretches to match AccountListCard.
           <div className="grid grid-cols-1 grid-rows-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {accounts.map((account) => (
               <AccountListCard key={account.id} account={account} />
@@ -115,7 +102,6 @@ function EmptyState() {
 function GhostSlot({ index }: { index: number }) {
   return (
     <Link href="/accounts/new" className="h-full">
-      {/* h-full stretches to fill the grid row height set by AccountListCard siblings */}
       <div
         className="group flex h-full cursor-pointer flex-col items-center justify-center gap-3 rounded-[28px] border border-dashed border-obsidian-600 bg-obsidian-900/30 p-6 text-center transition-all duration-200 hover:border-gold-600/40 hover:bg-obsidian-900/60"
         style={{ animationDelay: `${index * 80}ms` }}

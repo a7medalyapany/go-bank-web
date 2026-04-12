@@ -2,38 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 
-import { requireAuth } from "@/lib/auth";
-import { goApi } from "@/lib/api/client";
-import { unwrapAccounts } from "@/lib/dashboard/dashboard-snapshot";
+import { getAccountsSnapshot } from "@/lib/accounts/accounts-snapshot";
 import { Button } from "@/components/ui/Button";
 import { CreateAccountForm } from "@/components/accounts/CreateAccountForm";
 import { Badge } from "@/components/ui/Badge";
-import type { SupportedCurrency } from "@/lib/actions/accounts";
 
 export const metadata: Metadata = { title: "New Account" };
 
-const ALL_CURRENCIES: SupportedCurrency[] = ["USD", "EUR", "EGP"];
-const MAX_ACCOUNTS = 3;
-
 export default async function NewAccountPage() {
-  await requireAuth("/accounts/new");
-
-  let usedCurrencies: SupportedCurrency[] = [];
-  let accountCount = 0;
-
-  try {
-    const raw = await goApi.listAccounts(1, 10);
-    const accounts = unwrapAccounts(raw);
-    accountCount = accounts.length;
-    usedCurrencies = accounts.map((a) => a.currency as SupportedCurrency);
-  } catch {
-    usedCurrencies = [];
-  }
-
-  const availableCurrencies = ALL_CURRENCIES.filter(
-    (c) => !usedCurrencies.includes(c),
-  );
-  const limitReached = accountCount >= MAX_ACCOUNTS;
+  const { availableCurrencies, canCreate } = await getAccountsSnapshot();
+  const limitReached = !canCreate;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-5">
@@ -62,9 +40,7 @@ export default async function NewAccountPage() {
       {/* Content */}
       <div className="flex min-h-0 flex-1 items-start justify-center pt-4">
         <div className="w-full max-w-md">
-          {limitReached ? (
-            <LimitReachedState />
-          ) : availableCurrencies.length === 0 ? (
+          {limitReached || availableCurrencies.length === 0 ? (
             <LimitReachedState />
           ) : (
             <CreateAccountForm availableCurrencies={availableCurrencies} />
