@@ -749,7 +749,7 @@ export function TransferWizard({
   return (
     <div className="flex h-full min-h-0 flex-col gap-6">
       {step !== "success" && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-center">
           <StepIndicator current={step} />
         </div>
       )}

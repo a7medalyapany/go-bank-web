@@ -5,59 +5,48 @@ import { Plus, Wallet } from "lucide-react";
 import { getAccountsSnapshot } from "@/lib/accounts/accounts-snapshot";
 import { Button } from "@/components/ui/Button";
 import { AccountListCard } from "@/components/accounts/AccountListCard";
-import { Badge } from "@/components/ui/Badge";
 import { AccountsFooterInfo } from "@/components/accounts/AccountsFooterInfo";
+import { PanelHeader } from "@/components/ui/PanelHeader";
 
 export const metadata: Metadata = { title: "Accounts" };
 
 const MAX_ACCOUNTS = 3;
 
 export default async function AccountsPage() {
-  // getAccountsSnapshot calls requireAuth internally + is cached per request
   const { accounts, canCreate } = await getAccountsSnapshot();
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Badge
-            text="Accounts"
-            variant="gold"
-            icon={<Wallet className="size-3.5 text-gold-400" />}
-          />
-          <h1 className="mt-3 font-display text-3xl text-ash-50">
-            Your accounts
-          </h1>
-          <p className="mt-1 text-sm text-ash-500">
-            {accounts.length} of {MAX_ACCOUNTS} accounts opened
-          </p>
-        </div>
-
-        <Link
-          href="/accounts/new"
-          aria-disabled={!canCreate}
-          tabIndex={canCreate ? undefined : -1}
-          className={!canCreate ? "pointer-events-none" : ""}
-        >
-          <Button
-            variant="primary"
-            size="md"
-            disabled={!canCreate}
-            className="gap-2"
+    <>
+      <PanelHeader
+        badgeText="Accounts"
+        badgeIcon={<Wallet className="size-3.5 text-gold-400" />}
+        title="Your accounts."
+        description={`${accounts.length} of ${MAX_ACCOUNTS} accounts opened. One currency per account.`}
+        action={
+          <Link
+            href="/accounts/new"
+            aria-disabled={!canCreate}
+            tabIndex={canCreate ? undefined : -1}
+            className={!canCreate ? "pointer-events-none" : ""}
           >
-            <Plus className="h-4 w-4" />
-            New account
-          </Button>
-        </Link>
-      </div>
+            <Button
+              variant="primary"
+              size="md"
+              disabled={!canCreate}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              New account
+            </Button>
+          </Link>
+        }
+      />
 
-      {/* Account grid */}
       <div className="min-h-0 flex-1">
         {accounts.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-1 grid-rows-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {accounts.map((account) => (
               <AccountListCard key={account.id} account={account} />
             ))}
@@ -70,15 +59,17 @@ export default async function AccountsPage() {
       </div>
 
       {accounts.length > 0 && (
-        <AccountsFooterInfo accounts={accounts} canCreate={canCreate} />
+        <div className="mt-6 shrink-0">
+          <AccountsFooterInfo accounts={accounts} canCreate={canCreate} />
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-5 rounded-[30px] border border-obsidian-700 bg-obsidian-900/60 p-10 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-5 rounded-[30px] border border-obsidian-700 bg-obsidian-900/30 p-10 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/8 bg-white/3">
         <Wallet className="h-6 w-6 text-ash-600" strokeWidth={1.5} />
       </div>
@@ -103,7 +94,7 @@ function GhostSlot({ index }: { index: number }) {
   return (
     <Link href="/accounts/new" className="h-full">
       <div
-        className="group flex h-full cursor-pointer flex-col items-center justify-center gap-3 rounded-[28px] border border-dashed border-obsidian-600 bg-obsidian-900/30 p-6 text-center transition-all duration-200 hover:border-gold-600/40 hover:bg-obsidian-900/60"
+        className="group flex h-full min-h-[200px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[28px] border border-dashed border-obsidian-600 bg-obsidian-900/20 p-6 text-center transition-all duration-200 hover:border-gold-600/40 hover:bg-obsidian-900/40"
         style={{ animationDelay: `${index * 80}ms` }}
       >
         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/6 bg-white/3 transition-colors group-hover:border-gold-500/30 group-hover:bg-gold-400/8">
