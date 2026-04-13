@@ -22,7 +22,6 @@ export type TransferActionState = ActionState<{ transferId: number }>;
 export async function createTransferAction(
   input: TransferInput,
 ): Promise<TransferActionState> {
-  // Validate input defensively on the server too
   if (!input.fromAccountId || !input.toAccountId) {
     return { status: "error", message: "Invalid account selection." };
   }
@@ -44,7 +43,12 @@ export async function createTransferAction(
       currency: input.currency,
     });
 
-    // Revalidate pages that display account balances/activity
+    // Revalidate all pages that display balances or activity.
+    // Note: this only busts Next.js's server cache for the CURRENT user's
+    // session. The recipient user will see their updated balance on their
+    // next page navigation (Next.js fetches fresh server data per request).
+    // True real-time cross-user updates require WebSockets or SSE — out of
+    // scope for this REST-based architecture.
     revalidatePath("/dashboard");
     revalidatePath("/accounts");
     revalidatePath("/transfers");
@@ -68,7 +72,6 @@ export async function createTransferAction(
 function getTransferErrorMessage(status: number, raw: string): string {
   switch (status) {
     case 400:
-      // Could be insufficient balance or currency mismatch
       if (raw.toLowerCase().includes("insufficient")) {
         return "Insufficient balance to complete this transfer.";
       }
