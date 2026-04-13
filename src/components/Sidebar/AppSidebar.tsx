@@ -1,7 +1,7 @@
-import { logoutAction } from "@/lib/actions/auth";
 import type { SessionData } from "@/lib/session/config";
 import { Badge } from "@/components/ui/Badge";
 import { NavLink } from "@/components/Sidebar/NavLink";
+import { LogoutButton } from "@/components/Sidebar/LogoutButton";
 import { NAV_ITEMS } from "@/constants";
 
 interface AppSidebarProps {
@@ -36,7 +36,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
           </div>
         </div>
 
-        {/* Navigation — only serializable primitives passed to NavLink */}
+        {/* Navigation */}
         <nav className="mt-6 flex-1 space-y-2">
           {NAV_ITEMS.map((item) => (
             <NavLink
@@ -49,7 +49,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
           ))}
         </nav>
 
-        {/* Footer */}
+        {/* Footer with isolated Client Component for logout */}
         <div className="mt-6 rounded-3xl border border-silver-500/20 bg-metal-panel p-4">
           <p className="text-sm leading-7 text-ash-300">{user.email}</p>
           <p className="mt-1 text-xs uppercase tracking-[0.15em] text-ash-500">
@@ -57,14 +57,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
               ? "Ready for protected actions"
               : "Verification still required"}
           </p>
-          <form action={logoutAction} className="mt-4">
-            <button
-              type="submit"
-              className="w-full cursor-pointer rounded-lg border border-gold-500/20 bg-gold-400/8 px-3 py-2 text-xs uppercase tracking-[0.18em] text-gold-400 transition-colors hover:bg-gold-400/12"
-            >
-              Logout
-            </button>
-          </form>
+          <LogoutButton />
         </div>
       </div>
     </aside>
