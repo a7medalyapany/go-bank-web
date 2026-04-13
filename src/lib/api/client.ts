@@ -161,14 +161,15 @@ export const goApi = {
   // ── Users
   getUser: (username: string) => apiFetch<GoUser>(`/v1/users/${username}`),
 
-  updateUser: (
-    body: Partial<{
-      fullName: string;
-      email: string;
-      password: string;
-      old_password: string;
-    }>,
-  ) =>
+  // username is REQUIRED — the Go backend uses it to identify who to update
+  // and then cross-checks it against the PASETO auth token in the request context.
+  // Sending a PATCH without username results in "invalid parameters" immediately.
+  updateUser: (body: {
+    username: string;
+    fullName?: string;
+    email?: string;
+    password?: string;
+  }) =>
     apiFetch<GoUser>("/v1/users", {
       method: "PATCH",
       body: JSON.stringify(body),
