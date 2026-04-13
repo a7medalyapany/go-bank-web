@@ -1,7 +1,5 @@
 "use server";
 
-// server-only is implicit via "use server" but the explicit import provides
-// a build-time error if this module is ever accidentally imported client-side.
 import "server-only";
 
 import { redirect } from "next/navigation";
@@ -17,10 +15,6 @@ import type { GoLoginResponse, GoRegisterResponse } from "@/lib/api/types";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 const FETCH_TIMEOUT = 8_000;
 
-// ─── Shared fetch helper for PUBLIC endpoints (no auth required)
-// Returns a discriminated union — callers handle errors without try/catch.
-// Kept here (rather than goPublicApi) because these actions need to map
-// specific HTTP status codes to user-facing ActionState messages.
 async function publicFetch<T>(
   path: string,
   init: RequestInit,
@@ -66,10 +60,6 @@ async function publicFetch<T>(
   }
 }
 
-// ─── Register
-// POST /v1/users — public, no auth.
-// Go backend dispatches an email verification job via Redis/Asynq after creation.
-// User must login separately — register returns the user object, NOT tokens.
 export async function registerAction(
   _prev: ActionState,
   formData: FormData,
@@ -103,14 +93,9 @@ export async function registerAction(
     return { status: "error", message };
   }
 
-  // Verification email was dispatched async by Go backend.
-  // Redirect to login with registered=1 so the page shows the verify-email banner.
   redirect("/login?registered=1");
 }
 
-// ─── Login
-// POST /v1/auth/login — public, no auth.
-// callbackUrl is bound via loginAction.bind(null, callbackUrl) in the form component.
 export async function loginAction(
   callbackUrl: string,
   _prev: ActionState,
@@ -147,10 +132,6 @@ export async function loginAction(
 
   const data = result.data;
 
-  // ── Persist encrypted session cookie
-  // iron-session seals everything into one httpOnly AES-256-CBC cookie.
-  // Access token, refresh token, expiry timestamps — none of it is accessible
-  // from client JavaScript.
   await saveSession({
     user: {
       username: data.user.username,
@@ -165,7 +146,6 @@ export async function loginAction(
     refresh_token_expires_at: data.refreshTokenExpiresAt,
   });
 
-  // Guard against open redirect — only accept relative paths.
   const safe =
     callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
       ? callbackUrl
@@ -174,10 +154,6 @@ export async function loginAction(
   redirect(safe);
 }
 
-// ─── Logout
-// Destroys the local session cookie.
-// If the Go backend adds a POST /v1/auth/logout endpoint later,
-// call goApi.logout() here before destroySession().
 export async function logoutAction(): Promise<void> {
   await destroySession();
   redirect("/login");
