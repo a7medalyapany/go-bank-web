@@ -42,10 +42,13 @@ export async function createAccountAction(
     return { status: "error", message };
   }
 
-  // Revalidate so /accounts reflects the new account immediately.
-  // No redirect here — the modal client component handles closing via router.back()
-  // so the intercepting route is dismissed without a full navigation.
+  // FIX: Only revalidate /accounts — not the whole app layout.
+  // The previous version called revalidatePath("/accounts") which is correct,
+  // but some implementations were using revalidatePath("/", "layout") which
+  // flushes the ENTIRE cached layout tree including the dashboard, causing
+  // unnecessary re-fetches of accounts, activity, and session data.
   revalidatePath("/accounts");
+
   return { status: "success" };
 }
 
@@ -54,7 +57,10 @@ export async function deleteAccountAction(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
     await goApi.deleteAccount(accountId);
+    // FIX: Revalidate both accounts and dashboard since the deleted account
+    // affects the dashboard balance display and brief.
     revalidatePath("/accounts");
+    revalidatePath("/dashboard");
     return { ok: true };
   } catch (err: unknown) {
     const status = (err as { status?: number })?.status;
