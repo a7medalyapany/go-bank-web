@@ -68,16 +68,17 @@ export function CreateAccountModal({
     return () => el.removeEventListener("cancel", handler);
   }, [router]);
 
-  // On success: dismiss the modal slot (router.back) then refresh the
-  // underlying /accounts page so the new card appears without a full reload.
+  // On success: dismiss the modal slot and refresh server data
   useEffect(() => {
     if (state.status === "success") {
       router.back();
+      // FIX: router.refresh() re-fetches RSC data so the new account card
+      // appears immediately without the user having to navigate away and back.
+      // The Server Action already called revalidatePath("/accounts").
       router.refresh();
     }
   }, [state.status, router]);
 
-  // Close backdrop click
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) router.back();
   }
@@ -99,7 +100,6 @@ export function CreateAccountModal({
         className="relative w-full max-w-md rounded-[28px] border border-obsidian-600 bg-obsidian-900 p-7 shadow-[0_24px_80px_rgba(0,0,0,0.6)] animate-fade-up"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
         <button
           type="button"
           onClick={() => router.back()}
@@ -109,7 +109,6 @@ export function CreateAccountModal({
           <X className="h-4 w-4" />
         </button>
 
-        {/* Header */}
         <div className="mb-6 pr-8">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-gold-500/20 bg-gold-400/8">
             <Plus className="h-4 w-4 text-gold-400" />
