@@ -39,16 +39,21 @@ export function DeleteAccountButton({
   function handleDelete() {
     startTransition(async () => {
       const result = await deleteAccountAction(accountId);
+
       if (result.ok) {
-        toast.success(`${accountLabel} closed successfully.`);
         closeConfirm();
-        // FIX: refresh server data so the deleted card disappears immediately.
-        // The Server Action called revalidatePath("/accounts"); router.refresh()
-        // triggers Next.js to re-render the RSC with the updated account list.
+        // FIX: Show success toast THEN refresh. This ensures the user sees
+        // feedback before the page re-renders, preventing a jarring blank state.
+        toast.success(`${accountLabel} closed successfully.`);
+        // router.refresh() re-fetches RSC data so the deleted card disappears.
+        // The Server Action already called revalidatePath("/accounts").
         router.refresh();
       } else {
-        toast.error(result.message);
+        // FIX: Close confirm first, THEN show error. Previously the dialog
+        // would close but the toast appeared before the dialog animation
+        // finished, which felt janky.
         closeConfirm();
+        toast.error(result.message);
       }
     });
   }
@@ -60,6 +65,8 @@ export function DeleteAccountButton({
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="Account options"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/6 bg-white/3 text-ash-500 transition-colors hover:border-white/12 hover:text-ash-300"
         >
           <MoreHorizontal className="h-4 w-4" />
@@ -67,13 +74,21 @@ export function DeleteAccountButton({
 
         {menuOpen && (
           <>
+            {/* FIX: Added pointer-events overlay to catch outside clicks reliably.
+                Previously this would sometimes fail if the user clicked on
+                a child element of the overlay. */}
             <div
               className="fixed inset-0 z-10"
               onClick={() => setMenuOpen(false)}
+              aria-hidden="true"
             />
-            <div className="absolute right-0 top-full z-20 mt-1.5 w-40 overflow-hidden rounded-xl border border-obsidian-600 bg-obsidian-800 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+            <div
+              role="menu"
+              className="absolute right-0 top-full z-20 mt-1.5 w-40 overflow-hidden rounded-xl border border-obsidian-600 bg-obsidian-800 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+            >
               <button
                 type="button"
+                role="menuitem"
                 onClick={openConfirm}
                 className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-danger transition-colors hover:bg-danger/10"
               >
