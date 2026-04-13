@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useActionState } from "react";
+import { useEffect, useRef, useActionState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus } from "lucide-react";
 import { createAccountAction } from "@/lib/actions/accounts";
@@ -54,33 +54,42 @@ export function CreateAccountModal({
     INITIAL,
   );
 
+  // FIX: Memoize dismiss to avoid effect dependency churn.
+  const dismiss = useCallback(() => {
+    dialogRef.current?.close();
+    // FIX: Replace router.back() with router.push() to /accounts.
+    // router.back() is fragile — if the user navigated directly to /accounts/new
+    // (hard refresh, shared link), back() would take them out of the app.
+    // router.push("/accounts") is predictable and always correct.
+    router.push("/accounts");
+  }, [router]);
+
   // Open on mount
   useEffect(() => {
     dialogRef.current?.showModal();
   }, []);
 
-  // Close on ESC
+  // Close on ESC via the native dialog cancel event
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
-    const handler = () => router.back();
-    el.addEventListener("cancel", handler);
-    return () => el.removeEventListener("cancel", handler);
-  }, [router]);
+    el.addEventListener("cancel", dismiss);
+    return () => el.removeEventListener("cancel", dismiss);
+  }, [dismiss]);
 
-  // On success: dismiss the modal slot and refresh server data
+  // On success: dismiss and refresh server data
   useEffect(() => {
     if (state.status === "success") {
-      router.back();
       // FIX: router.refresh() re-fetches RSC data so the new account card
-      // appears immediately without the user having to navigate away and back.
-      // The Server Action already called revalidatePath("/accounts").
+      // appears immediately. We call it BEFORE dismiss so the data is fresh
+      // when the accounts page re-renders.
       router.refresh();
+      dismiss();
     }
-  }, [state.status, router]);
+  }, [state.status, router, dismiss]);
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
-    if (e.target === dialogRef.current) router.back();
+    if (e.target === dialogRef.current) dismiss();
   }
 
   const globalError = state.status === "error" ? state.message : undefined;
@@ -102,7 +111,7 @@ export function CreateAccountModal({
       >
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={dismiss}
           aria-label="Close"
           className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-xl border border-obsidian-600 bg-obsidian-800 text-ash-500 transition-colors hover:border-obsidian-500 hover:text-ash-200"
         >
@@ -186,7 +195,7 @@ export function CreateAccountModal({
                   variant="secondary"
                   size="md"
                   className="flex-1"
-                  onClick={() => router.back()}
+                  onClick={dismiss}
                   disabled={pending}
                 >
                   Cancel

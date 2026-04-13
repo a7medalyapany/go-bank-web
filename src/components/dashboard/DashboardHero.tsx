@@ -12,7 +12,16 @@ interface DashboardHeroProps {
   userName: string;
 }
 
+// ─── First name extraction
+// FIX: The original code rendered the full_name as-is (e.g. "John Doe").
+// We now extract just the first name for a more natural greeting.
+function getFirstName(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] ?? fullName;
+}
+
 export function DashboardHero({ accounts, userName }: DashboardHeroProps) {
+  const firstName = getFirstName(userName);
+
   return (
     <DashboardHeroStateProvider initialSelectedId={accounts[0]?.id ?? null}>
       <section className="min-h-0 overflow-hidden rounded-[34px] border border-obsidian-700 bg-[radial-gradient(circle_at_top_left,rgba(235,190,69,0.16),transparent_22%),radial-gradient(circle_at_top_right,rgba(216,221,232,0.12),transparent_30%),linear-gradient(180deg,rgba(14,15,17,0.96),rgba(8,8,9,1))] p-5 shadow-card md:p-6">
@@ -25,7 +34,7 @@ export function DashboardHero({ accounts, userName }: DashboardHeroProps) {
             />
 
             <h1 className="mt-4 max-w-2xl font-display text-[1.8rem] leading-tight text-ash-50 md:text-[2.25rem]">
-              BanQee, {userName}.
+              BanQee, {firstName}
             </h1>
 
             <DashboardHeroBalance accounts={accounts} />

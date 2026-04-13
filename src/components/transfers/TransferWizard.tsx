@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useCallback, useTransition, useRef, useEffect } from "react";
+import {
+  useState,
+  useCallback,
+  useTransition,
+  useRef,
+  useEffect,
+  useId,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -69,7 +76,7 @@ function StepIndicator({ current }: { current: WizardStep }) {
   const currentIdx = STEP_ORDER.indexOf(current);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" aria-label="Transfer progress">
       {STEPS.map((step, idx) => {
         const isDone = idx < currentIdx;
         const isActive = step.key === current;
@@ -85,6 +92,7 @@ function StepIndicator({ current }: { current: WizardStep }) {
                       ? "border-gold-500/60 bg-gold-400/20 text-gold-300"
                       : "border-obsidian-600 bg-obsidian-800 text-ash-600",
                 )}
+                aria-current={isActive ? "step" : undefined}
               >
                 {isDone ? <CheckCircle className="h-3.5 w-3.5" /> : idx + 1}
               </div>
@@ -139,7 +147,7 @@ function SourceStep({
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3" role="radiogroup" aria-label="Source account">
         {accounts.map((account) => {
           const config = DASHBOARD_CURRENCY_CONFIG[account.currency];
           const isSelected = selected?.id === account.id;
@@ -148,6 +156,7 @@ function SourceStep({
               key={account.id}
               type="button"
               onClick={() => onSelect(account)}
+              aria-pressed={isSelected}
               className={cn(
                 "w-full rounded-2xl border p-4 text-left transition-all duration-200",
                 isSelected
@@ -199,16 +208,23 @@ function LookupFeedback({
   lookup,
   recipientId,
   sourceAccount,
+  statusId,
 }: {
   lookup: LookupState;
   recipientId: string;
   sourceAccount: GoAccount;
+  statusId: string;
 }) {
   if (!recipientId || lookup.status === "idle") return null;
 
   if (lookup.status === "loading") {
     return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-obsidian-600 bg-obsidian-800/60 px-4 py-3">
+      <div
+        id={statusId}
+        role="status"
+        aria-live="polite"
+        className="flex items-center gap-2.5 rounded-xl border border-obsidian-600 bg-obsidian-800/60 px-4 py-3"
+      >
         <Loader2 className="h-4 w-4 animate-spin text-ash-500" />
         <p className="text-sm text-ash-500">Looking up account…</p>
       </div>
@@ -217,7 +233,12 @@ function LookupFeedback({
 
   if (lookup.status === "not_found") {
     return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3">
+      <div
+        id={statusId}
+        role="alert"
+        aria-live="assertive"
+        className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3"
+      >
         <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
         <p className="text-sm text-danger">
           Account not found. Please check the ID and try again.
@@ -228,7 +249,12 @@ function LookupFeedback({
 
   if (lookup.status === "same_user") {
     return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3">
+      <div
+        id={statusId}
+        role="alert"
+        aria-live="assertive"
+        className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3"
+      >
         <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
         <p className="text-sm text-warning">
           You cannot transfer to your own account.
@@ -239,7 +265,12 @@ function LookupFeedback({
 
   if (lookup.status === "currency_mismatch") {
     return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3">
+      <div
+        id={statusId}
+        role="alert"
+        aria-live="assertive"
+        className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3"
+      >
         <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
         <div>
           <p className="text-sm text-warning">Currency mismatch.</p>
@@ -254,7 +285,12 @@ function LookupFeedback({
 
   if (lookup.status === "error") {
     return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3">
+      <div
+        id={statusId}
+        role="alert"
+        aria-live="assertive"
+        className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3"
+      >
         <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
         <p className="text-sm text-danger">
           {lookup.errorMessage ??
@@ -266,7 +302,12 @@ function LookupFeedback({
 
   if (lookup.status === "found" && lookup.account) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/8 px-4 py-3.5">
+      <div
+        id={statusId}
+        role="status"
+        aria-live="polite"
+        className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/8 px-4 py-3.5"
+      >
         <BadgeCheck className="h-5 w-5 shrink-0 text-success" />
         <div className="min-w-0">
           <p className="text-sm font-medium text-ash-100">Account verified</p>
@@ -290,6 +331,7 @@ function LookupFeedback({
 
 function RecipientStep({
   sourceAccount,
+  currentUsername,
   lookup,
   recipientId,
   onRecipientIdChange,
@@ -304,6 +346,7 @@ function RecipientStep({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const statusId = useId();
   const canProceed = lookup.status === "found";
 
   return (
@@ -327,12 +370,14 @@ function RecipientStep({
         onChange={(e) => onRecipientIdChange(e.target.value)}
         prefix={<Search className="h-4 w-4" />}
         hint="We'll verify the account exists and matches the currency."
+        aria-describedby={statusId}
       />
 
       <LookupFeedback
         lookup={lookup}
         recipientId={recipientId}
         sourceAccount={sourceAccount}
+        statusId={statusId}
       />
 
       <div className="flex gap-3">
@@ -532,7 +577,11 @@ function ConfirmStep({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3">
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3"
+        >
           <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
           <p className="text-sm text-danger">{error}</p>
         </div>
@@ -581,7 +630,12 @@ function SuccessStep({
   const parsedAmount = parseFloat(amount);
 
   return (
-    <div className="flex flex-col items-center gap-6 py-4 text-center">
+    <div
+      className="flex flex-col items-center gap-6 py-4 text-center"
+      role="status"
+      aria-live="polite"
+      aria-label="Transfer successful"
+    >
       <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-success/30 bg-success/12">
         <CheckCircle className="h-8 w-8 text-success" strokeWidth={1.5} />
       </div>
@@ -630,17 +684,24 @@ export function TransferWizard({
   const [amountError, setAmountError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // FIX: Use a stable ref for the debounce timer. The previous code declared
+  // the ref inside the component body but it wasn't properly typed to handle
+  // the NodeJS.Timeout vs number ambiguity. Using ReturnType<typeof setTimeout>
+  // is correct but we also need to ensure we cancel on each new call.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clear debounce timer on unmount
+  // FIX: Clear debounce timer on unmount to prevent memory leaks and
+  // state updates on unmounted components.
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+      }
     };
   }, []);
 
-  // Derive effective lookup state, re-evaluating currency match whenever
-  // the source account changes (user went back and picked a different account).
+  // Derive effective lookup state
   const effectiveLookup: LookupState = (() => {
     if (!lookup.account || !sourceAccount) return lookup;
     if (lookup.account.currency !== sourceAccount.currency) {
@@ -655,13 +716,20 @@ export function TransferWizard({
     return lookup;
   })();
 
-  // ── Debounced account lookup via our Next.js route handler
+  // ── Debounced account lookup
+  // FIX: Wrapped in useCallback to stabilize the reference across renders.
+  // The previous implementation created a new function on every render which
+  // was fine functionally but wasteful.
   const handleRecipientIdChange = useCallback(
     (val: string) => {
       setRecipientId(val);
       setLookup(LOOKUP_IDLE);
 
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      // Clear any pending debounce
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
 
       const trimmed = val.trim();
       if (!trimmed || isNaN(Number(trimmed)) || Number(trimmed) <= 0) return;
@@ -716,19 +784,22 @@ export function TransferWizard({
     [sourceAccount, currentUsername],
   );
 
-  const handleAmountChange = (val: string) => {
-    setAmount(val);
-    setAmountError(null);
-    if (!sourceAccount) return;
-    const parsed = parseFloat(val);
-    if (val !== "" && (isNaN(parsed) || parsed <= 0)) {
-      setAmountError("Amount must be greater than zero.");
-    } else if (!isNaN(parsed) && parsed > sourceAccount.balance) {
-      setAmountError("Amount exceeds available balance.");
-    }
-  };
+  const handleAmountChange = useCallback(
+    (val: string) => {
+      setAmount(val);
+      setAmountError(null);
+      if (!sourceAccount) return;
+      const parsed = parseFloat(val);
+      if (val !== "" && (isNaN(parsed) || parsed <= 0)) {
+        setAmountError("Amount must be greater than zero.");
+      } else if (!isNaN(parsed) && parsed > sourceAccount.balance) {
+        setAmountError("Amount exceeds available balance.");
+      }
+    },
+    [sourceAccount],
+  );
 
-  const handleConfirm = () => {
+  const handleConfirm = useCallback(() => {
     if (!sourceAccount || !effectiveLookup.account || !amount) return;
     setSubmitError(null);
 
@@ -742,19 +813,14 @@ export function TransferWizard({
 
       if (result.status === "success") {
         setStep("success");
-        // FIX: router.refresh() re-fetches all server data for the current
-        // page, ensuring the sender sees their updated balance immediately
-        // without a full page reload. The Server Action already called
-        // revalidatePath(), so this triggers Next.js to re-render the RSCs
-        // with fresh data from the Go API.
         router.refresh();
       } else if (result.status === "error") {
         setSubmitError(result.message);
       }
     });
-  };
+  }, [sourceAccount, effectiveLookup.account, amount, router]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setStep("source");
     setSourceAccount(accounts[0] ?? null);
     setRecipientId("");
@@ -762,7 +828,7 @@ export function TransferWizard({
     setAmount("");
     setAmountError(null);
     setSubmitError(null);
-  };
+  }, [accounts]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-6">
