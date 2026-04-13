@@ -22,16 +22,21 @@ export async function getSession(): Promise<IronSession<SessionData>> {
 export async function getAuthSession(): Promise<SessionData | null> {
   const session = await getSession();
 
-  if (!session.user || !session.access_token) return null;
+  if (!session.user || !session.access_token || !session.refresh_token) {
+    return null;
+  }
 
   const now = Date.now();
   const accessExpiry = new Date(session.access_token_expires_at).getTime();
   const refreshExpiry = new Date(session.refresh_token_expires_at).getTime();
 
-  // Refresh token dead → wipe cookie and force re-login
+  if (isNaN(accessExpiry) || isNaN(refreshExpiry)) {
+    await destroySession();
+    return null;
+  }
+
   if (now >= refreshExpiry) {
-    session.destroy();
-    await session.save(); // flush the cleared Set-Cookie header
+    await destroySession();
     return null;
   }
 
@@ -56,9 +61,7 @@ export async function getAuthSession(): Promise<SessionData | null> {
     });
 
     if (!res.ok) {
-      // Backend rejected the refresh (revoked, expired, etc.) → force logout
-      session.destroy();
-      await session.save();
+      await destroySession();
       return null;
     }
 
@@ -92,16 +95,32 @@ export async function saveSession(data: SessionData): Promise<void> {
   await session.save();
 }
 
-// ─── Destroy session (logout)
-// session.destroy() clears the in-memory data synchronously.
-// session.save() flushes the cleared Set-Cookie header into the response.
+// ─── destroySession
+//
+// WHY cookies().delete() instead of session.destroy() + session.save():
+//
+// iron-session's session.destroy() sets the cookie VALUE to an empty string "".
+// The resulting Set-Cookie header looks like: gobank_sid=""; Path=/; HttpOnly
+// The cookie KEY is still present in the browser jar — value is just "".
+//
+// Next.js cookies().delete() writes: Set-Cookie: gobank_sid=; Path=/; Max-Age=0
+// This is a true deletion — the browser removes the key entirely from its jar.
+//
+// The difference matters because the middleware does:
+//   request.cookies.get(SESSION_OPTIONS.cookieName)?.value
+// An empty-string value is falsy, so both approaches look the same to the middleware.
+// BUT: iron-session auto-recreates a new empty session when it encounters
+// a cookie with an invalid seal (empty string fails HMAC verification).
+// This phantom empty session can interfere with the session lifecycle.
+//
+// With cookies().delete() the cookie is truly gone — no phantom sessions,
+// no ambiguity, no iron-session trying to unseal garbage on the next request.
+// The middleware sees the cookie is absent and the app behaves correctly.
 export async function destroySession(): Promise<void> {
-  const session = await getSession();
-  session.destroy();
-  await session.save();
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_OPTIONS.cookieName);
 }
 
-// ─── Private: plain-object snapshot from iron-session proxy
 function toSnapshot(s: IronSession<SessionData>): SessionData {
   return {
     user: s.user,
