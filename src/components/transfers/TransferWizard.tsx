@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useTransition, useRef } from "react";
+import { useState, useCallback, useTransition, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   ArrowLeft,
@@ -30,40 +31,46 @@ interface TransferWizardProps {
 
 type WizardStep = "source" | "recipient" | "amount" | "confirm" | "success";
 
+type LookupStatus =
+  | "idle"
+  | "loading"
+  | "found"
+  | "not_found"
+  | "same_user"
+  | "currency_mismatch"
+  | "error";
+
 interface LookupState {
-  status:
-    | "idle"
-    | "loading"
-    | "found"
-    | "not_found"
-    | "same_user"
-    | "currency_mismatch"
-    | "error";
+  status: LookupStatus;
   account: GoAccountLookup | null;
   errorMessage?: string;
 }
 
-// ─── Step indicator
-function StepIndicator({ current }: { current: WizardStep }) {
-  const steps: { key: WizardStep; label: string }[] = [
-    { key: "source", label: "Source" },
-    { key: "recipient", label: "Recipient" },
-    { key: "amount", label: "Amount" },
-    { key: "confirm", label: "Confirm" },
-  ];
+const LOOKUP_IDLE: LookupState = { status: "idle", account: null };
+const LOOKUP_LOADING: LookupState = { status: "loading", account: null };
 
-  const order: WizardStep[] = [
-    "source",
-    "recipient",
-    "amount",
-    "confirm",
-    "success",
-  ];
-  const currentIdx = order.indexOf(current);
+// ─── Step Indicator
+const STEPS: { key: WizardStep; label: string }[] = [
+  { key: "source", label: "Source" },
+  { key: "recipient", label: "Recipient" },
+  { key: "amount", label: "Amount" },
+  { key: "confirm", label: "Confirm" },
+];
+
+const STEP_ORDER: WizardStep[] = [
+  "source",
+  "recipient",
+  "amount",
+  "confirm",
+  "success",
+];
+
+function StepIndicator({ current }: { current: WizardStep }) {
+  const currentIdx = STEP_ORDER.indexOf(current);
 
   return (
     <div className="flex items-center gap-2">
-      {steps.map((step, idx) => {
+      {STEPS.map((step, idx) => {
         const isDone = idx < currentIdx;
         const isActive = step.key === current;
         return (
@@ -94,7 +101,7 @@ function StepIndicator({ current }: { current: WizardStep }) {
                 {step.label}
               </span>
             </div>
-            {idx < steps.length - 1 && (
+            {idx < STEPS.length - 1 && (
               <div
                 className={cn(
                   "mb-4 h-px w-6 transition-colors duration-300",
@@ -109,7 +116,7 @@ function StepIndicator({ current }: { current: WizardStep }) {
   );
 }
 
-// ─── Source Account Selector
+// ─── Source Step
 function SourceStep({
   accounts,
   selected,
@@ -187,10 +194,102 @@ function SourceStep({
   );
 }
 
-// ─── Recipient Step (with debounced lookup)
+// ─── Recipient Step
+function LookupFeedback({
+  lookup,
+  recipientId,
+  sourceAccount,
+}: {
+  lookup: LookupState;
+  recipientId: string;
+  sourceAccount: GoAccount;
+}) {
+  if (!recipientId || lookup.status === "idle") return null;
+
+  if (lookup.status === "loading") {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-obsidian-600 bg-obsidian-800/60 px-4 py-3">
+        <Loader2 className="h-4 w-4 animate-spin text-ash-500" />
+        <p className="text-sm text-ash-500">Looking up account…</p>
+      </div>
+    );
+  }
+
+  if (lookup.status === "not_found") {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3">
+        <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
+        <p className="text-sm text-danger">
+          Account not found. Please check the ID and try again.
+        </p>
+      </div>
+    );
+  }
+
+  if (lookup.status === "same_user") {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3">
+        <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
+        <p className="text-sm text-warning">
+          You cannot transfer to your own account.
+        </p>
+      </div>
+    );
+  }
+
+  if (lookup.status === "currency_mismatch") {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3">
+        <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
+        <div>
+          <p className="text-sm text-warning">Currency mismatch.</p>
+          <p className="mt-0.5 text-xs text-ash-500">
+            Source is {sourceAccount.currency}, destination is{" "}
+            {lookup.account?.currency}. Both must match.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (lookup.status === "error") {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3">
+        <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
+        <p className="text-sm text-danger">
+          {lookup.errorMessage ??
+            "Could not look up account. Please try again."}
+        </p>
+      </div>
+    );
+  }
+
+  if (lookup.status === "found" && lookup.account) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/8 px-4 py-3.5">
+        <BadgeCheck className="h-5 w-5 shrink-0 text-success" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ash-100">Account verified</p>
+          <p className="mt-0.5 text-xs text-ash-400">
+            Owner:{" "}
+            <span className="font-mono text-ash-200">
+              @{lookup.account.owner}
+            </span>{" "}
+            · Currency:{" "}
+            <span className="font-mono text-ash-200">
+              {lookup.account.currency}
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function RecipientStep({
   sourceAccount,
-  currentUsername,
   lookup,
   recipientId,
   onRecipientIdChange,
@@ -206,91 +305,6 @@ function RecipientStep({
   onNext: () => void;
 }) {
   const canProceed = lookup.status === "found";
-
-  const statusContent = () => {
-    if (!recipientId || lookup.status === "idle") return null;
-
-    if (lookup.status === "loading") {
-      return (
-        <div className="flex items-center gap-2.5 rounded-xl border border-obsidian-600 bg-obsidian-800/60 px-4 py-3">
-          <Loader2 className="h-4 w-4 animate-spin text-ash-500" />
-          <p className="text-sm text-ash-500">Looking up account…</p>
-        </div>
-      );
-    }
-
-    if (lookup.status === "not_found") {
-      return (
-        <div className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3">
-          <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
-          <p className="text-sm text-danger">
-            Account not found. Please check the ID and try again.
-          </p>
-        </div>
-      );
-    }
-
-    if (lookup.status === "same_user") {
-      return (
-        <div className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3">
-          <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
-          <p className="text-sm text-warning">
-            You cannot transfer to your own account.
-          </p>
-        </div>
-      );
-    }
-
-    if (lookup.status === "currency_mismatch") {
-      return (
-        <div className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/8 px-4 py-3">
-          <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
-          <div>
-            <p className="text-sm text-warning">Currency mismatch.</p>
-            <p className="mt-0.5 text-xs text-ash-500">
-              Source is {sourceAccount.currency}, destination is{" "}
-              {lookup.account?.currency}. Both must match.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    if (lookup.status === "error") {
-      return (
-        <div className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/8 px-4 py-3">
-          <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
-          <p className="text-sm text-danger">
-            {lookup.errorMessage ??
-              "Could not look up account. Please try again."}
-          </p>
-        </div>
-      );
-    }
-
-    if (lookup.status === "found" && lookup.account) {
-      return (
-        <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/8 px-4 py-3.5">
-          <BadgeCheck className="h-5 w-5 shrink-0 text-success" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ash-100">Account verified</p>
-            <p className="mt-0.5 text-xs text-ash-400">
-              Owner:{" "}
-              <span className="font-mono text-ash-200">
-                @{lookup.account.owner}
-              </span>{" "}
-              · Currency:{" "}
-              <span className="font-mono text-ash-200">
-                {lookup.account.currency}
-              </span>
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    return null;
-  };
 
   return (
     <div className="space-y-5">
@@ -315,7 +329,11 @@ function RecipientStep({
         hint="We'll verify the account exists and matches the currency."
       />
 
-      {statusContent()}
+      <LookupFeedback
+        lookup={lookup}
+        recipientId={recipientId}
+        sourceAccount={sourceAccount}
+      />
 
       <div className="flex gap-3">
         <Button
@@ -362,13 +380,12 @@ function AmountStep({
 }) {
   const config = DASHBOARD_CURRENCY_CONFIG[sourceAccount.currency];
   const symbol = config?.symbol ?? sourceAccount.currency + " ";
-  const balanceMajor = sourceAccount.balance;
   const parsedAmount = parseFloat(amount);
   const isValid =
     amount !== "" &&
     !isNaN(parsedAmount) &&
     parsedAmount > 0 &&
-    parsedAmount <= balanceMajor;
+    parsedAmount <= sourceAccount.balance;
 
   return (
     <div className="space-y-5">
@@ -383,7 +400,6 @@ function AmountStep({
         </p>
       </div>
 
-      {/* Balance display */}
       <div className="rounded-xl border border-obsidian-600 bg-obsidian-800/40 px-4 py-3">
         <p className="text-xs font-mono uppercase tracking-[0.22em] text-ash-600">
           Available balance
@@ -405,7 +421,7 @@ function AmountStep({
         prefix={
           <span className="text-ash-400 font-mono text-sm">{symbol}</span>
         }
-        hint={`Max: ${symbol}${balanceMajor.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        hint={`Max: ${symbol}${sourceAccount.balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         error={amountError ?? undefined}
       />
 
@@ -466,7 +482,6 @@ function ConfirmStep({
       </div>
 
       <div className="space-y-3 rounded-2xl border border-obsidian-600 bg-obsidian-800/40 p-5">
-        {/* Amount */}
         <div className="text-center pb-4 border-b border-obsidian-700">
           <p className="text-xs font-mono uppercase tracking-[0.28em] text-ash-600">
             Transfer amount
@@ -483,7 +498,6 @@ function ConfirmStep({
           </p>
         </div>
 
-        {/* From */}
         <div className="flex items-center justify-between py-2">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-obsidian-600 bg-obsidian-700">
@@ -501,7 +515,6 @@ function ConfirmStep({
           </p>
         </div>
 
-        {/* To */}
         <div className="flex items-center justify-between py-2">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-success/20 bg-success/8">
@@ -601,38 +614,59 @@ function SuccessStep({
   );
 }
 
-// ─── Main Wizard Component
+// ─── Main Wizard
 export function TransferWizard({
   accounts,
   currentUsername,
 }: TransferWizardProps) {
+  const router = useRouter();
   const [step, setStep] = useState<WizardStep>("source");
   const [sourceAccount, setSourceAccount] = useState<GoAccount | null>(
     accounts[0] ?? null,
   );
   const [recipientId, setRecipientId] = useState("");
-  const [lookup, setLookup] = useState<LookupState>({
-    status: "idle",
-    account: null,
-  });
+  const [lookup, setLookup] = useState<LookupState>(LOOKUP_IDLE);
   const [amount, setAmount] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Debounced account lookup
+  // Clear debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  // Derive effective lookup state, re-evaluating currency match whenever
+  // the source account changes (user went back and picked a different account).
+  const effectiveLookup: LookupState = (() => {
+    if (!lookup.account || !sourceAccount) return lookup;
+    if (lookup.account.currency !== sourceAccount.currency) {
+      return { ...lookup, status: "currency_mismatch" };
+    }
+    if (
+      lookup.status === "currency_mismatch" &&
+      lookup.account.currency === sourceAccount.currency
+    ) {
+      return { ...lookup, status: "found" };
+    }
+    return lookup;
+  })();
+
+  // ── Debounced account lookup via our Next.js route handler
   const handleRecipientIdChange = useCallback(
     (val: string) => {
       setRecipientId(val);
-      setLookup({ status: "idle", account: null });
+      setLookup(LOOKUP_IDLE);
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
       const trimmed = val.trim();
       if (!trimmed || isNaN(Number(trimmed)) || Number(trimmed) <= 0) return;
 
-      setLookup({ status: "loading", account: null });
+      setLookup(LOOKUP_LOADING);
 
       debounceRef.current = setTimeout(async () => {
         try {
@@ -640,32 +674,30 @@ export function TransferWizard({
             `/api/accounts/lookup?id=${encodeURIComponent(trimmed)}`,
           );
 
-          // We call our own Next.js route handler that proxies to the Go API
-          // with the session token — this keeps the token server-side.
           if (!res.ok) {
             const body = await res.json().catch(() => ({}));
-            if (res.status === 404) {
-              setLookup({ status: "not_found", account: null });
-            } else {
-              setLookup({
-                status: "error",
-                account: null,
-                errorMessage: body.message ?? "Lookup failed.",
-              });
-            }
+            setLookup(
+              res.status === 404
+                ? { status: "not_found", account: null }
+                : {
+                    status: "error",
+                    account: null,
+                    errorMessage:
+                      (body as { message?: string }).message ??
+                      "Lookup failed.",
+                  },
+            );
             return;
           }
 
-          const data = await res.json();
-          const account: GoAccountLookup = data.account;
+          const data = (await res.json()) as { account: GoAccountLookup };
+          const account = data.account;
 
-          // Business rule: cannot transfer to own account
           if (account.owner === currentUsername) {
             setLookup({ status: "same_user", account });
             return;
           }
 
-          // Business rule: currency must match source
           if (sourceAccount && account.currency !== sourceAccount.currency) {
             setLookup({ status: "currency_mismatch", account });
             return;
@@ -689,28 +721,33 @@ export function TransferWizard({
     setAmountError(null);
     if (!sourceAccount) return;
     const parsed = parseFloat(val);
-    const balanceMajor = sourceAccount.balance;
     if (val !== "" && (isNaN(parsed) || parsed <= 0)) {
       setAmountError("Amount must be greater than zero.");
-    } else if (!isNaN(parsed) && parsed > balanceMajor) {
+    } else if (!isNaN(parsed) && parsed > sourceAccount.balance) {
       setAmountError("Amount exceeds available balance.");
     }
   };
 
   const handleConfirm = () => {
-    if (!sourceAccount || !lookup.account || !amount) return;
+    if (!sourceAccount || !effectiveLookup.account || !amount) return;
     setSubmitError(null);
 
     startTransition(async () => {
       const result = await createTransferAction({
         fromAccountId: sourceAccount.id,
-        toAccountId: Number(lookup.account!.id),
+        toAccountId: Number(effectiveLookup.account!.id),
         amount: parseFloat(amount),
         currency: sourceAccount.currency,
       });
 
       if (result.status === "success") {
         setStep("success");
+        // FIX: router.refresh() re-fetches all server data for the current
+        // page, ensuring the sender sees their updated balance immediately
+        // without a full page reload. The Server Action already called
+        // revalidatePath(), so this triggers Next.js to re-render the RSCs
+        // with fresh data from the Go API.
+        router.refresh();
       } else if (result.status === "error") {
         setSubmitError(result.message);
       }
@@ -721,30 +758,11 @@ export function TransferWizard({
     setStep("source");
     setSourceAccount(accounts[0] ?? null);
     setRecipientId("");
-    setLookup({ status: "idle", account: null });
+    setLookup(LOOKUP_IDLE);
     setAmount("");
     setAmountError(null);
     setSubmitError(null);
   };
-
-  const derivedLookup = (() => {
-    if (!lookup.account || !sourceAccount) return lookup;
-
-    // currency mismatch case
-    if (lookup.account.currency !== sourceAccount.currency) {
-      return { ...lookup, status: "currency_mismatch" as const };
-    }
-
-    // recover from mismatch if source changes
-    if (
-      lookup.status === "currency_mismatch" &&
-      lookup.account.currency === sourceAccount.currency
-    ) {
-      return { ...lookup, status: "found" as const };
-    }
-
-    return lookup;
-  })();
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-6">
@@ -767,17 +785,17 @@ export function TransferWizard({
           <RecipientStep
             sourceAccount={sourceAccount}
             currentUsername={currentUsername}
-            lookup={derivedLookup}
+            lookup={effectiveLookup}
             recipientId={recipientId}
             onRecipientIdChange={handleRecipientIdChange}
             onBack={() => setStep("source")}
             onNext={() => setStep("amount")}
           />
         )}
-        {step === "amount" && sourceAccount && derivedLookup.account && (
+        {step === "amount" && sourceAccount && effectiveLookup.account && (
           <AmountStep
             sourceAccount={sourceAccount}
-            recipientAccount={derivedLookup.account}
+            recipientAccount={effectiveLookup.account}
             amount={amount}
             onAmountChange={handleAmountChange}
             amountError={amountError}
@@ -785,10 +803,10 @@ export function TransferWizard({
             onNext={() => setStep("confirm")}
           />
         )}
-        {step === "confirm" && sourceAccount && derivedLookup.account && (
+        {step === "confirm" && sourceAccount && effectiveLookup.account && (
           <ConfirmStep
             sourceAccount={sourceAccount}
-            recipientAccount={derivedLookup.account}
+            recipientAccount={effectiveLookup.account}
             amount={amount}
             isPending={isPending}
             error={submitError}
@@ -796,11 +814,11 @@ export function TransferWizard({
             onConfirm={handleConfirm}
           />
         )}
-        {step === "success" && derivedLookup.account && (
+        {step === "success" && effectiveLookup.account && (
           <SuccessStep
             amount={amount}
             currency={sourceAccount?.currency ?? "USD"}
-            recipientOwner={derivedLookup.account.owner}
+            recipientOwner={effectiveLookup.account.owner}
             onReset={handleReset}
           />
         )}
