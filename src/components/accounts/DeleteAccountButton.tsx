@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { MoreHorizontal, Trash2, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import { deleteAccountAction } from "@/lib/actions/accounts";
@@ -16,6 +17,7 @@ export function DeleteAccountButton({
   accountId,
   accountLabel,
 }: DeleteAccountButtonProps) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -24,7 +26,6 @@ export function DeleteAccountButton({
   function openConfirm() {
     setMenuOpen(false);
     setConfirmOpen(true);
-    // Use rAF so the dialog renders before showModal is called
     requestAnimationFrame(() => {
       dialogRef.current?.showModal();
     });
@@ -41,6 +42,10 @@ export function DeleteAccountButton({
       if (result.ok) {
         toast.success(`${accountLabel} closed successfully.`);
         closeConfirm();
+        // FIX: refresh server data so the deleted card disappears immediately.
+        // The Server Action called revalidatePath("/accounts"); router.refresh()
+        // triggers Next.js to re-render the RSC with the updated account list.
+        router.refresh();
       } else {
         toast.error(result.message);
         closeConfirm();
@@ -50,7 +55,6 @@ export function DeleteAccountButton({
 
   return (
     <>
-      {/* ⋯ trigger */}
       <div className="relative">
         <button
           type="button"
@@ -63,7 +67,6 @@ export function DeleteAccountButton({
 
         {menuOpen && (
           <>
-            {/* Click-away overlay */}
             <div
               className="fixed inset-0 z-10"
               onClick={() => setMenuOpen(false)}
@@ -82,7 +85,6 @@ export function DeleteAccountButton({
         )}
       </div>
 
-      {/* Confirmation dialog */}
       {confirmOpen && (
         <dialog
           ref={dialogRef}

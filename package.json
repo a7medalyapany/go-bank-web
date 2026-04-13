@@ -11,8 +11,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.95.2",
-    "@tanstack/react-query-devtools": "^5.95.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "iron-session": "^8.0.4",

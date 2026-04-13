@@ -1,4 +1,3 @@
-// src/lib/actions/settings.ts
 "use server";
 
 import "server-only";
@@ -6,6 +5,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getAuthSession } from "@/lib/session";
 import { goApi, ApiError } from "@/lib/api/client";
+import { patchSessionUser } from "@/lib/session/refresh";
 import type { ActionState } from "@/lib/validation/auth";
 import {
   updateProfileSchema,
@@ -105,14 +105,12 @@ function handleApiError(err: unknown): ActionState {
 
 // ─── Update Profile
 // PATCH /v1/users — requires `username` to identify who to update.
-// The backend Go handler checks: authPayload.Username == req.GetUsername()
-// Without sending username, the backend fails with "invalid parameters".
+// After a successful update we also patch the session cookie so the sidebar
+// reflects the new name/email immediately without requiring logout.
 export async function updateProfileAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  // Get the authenticated session to extract the username.
-  // This is the source of truth — we never trust a client-supplied username.
   const session = await getAuthSession();
   if (!session) {
     return {
@@ -139,31 +137,38 @@ export async function updateProfileAction(
 
   const { fullName, email } = parsed.data;
 
-  // Read baseline values embedded as hidden inputs by the form.
-  // We diff against these so we only send what actually changed.
   const currentFullName =
     (formData.get("_currentFullName") as string | null)?.trim() ?? "";
   const currentEmail =
     (formData.get("_currentEmail") as string | null)?.trim() ?? "";
 
-  // Build the patch — only include fields that actually changed.
   const patch: { username: string; fullName?: string; email?: string } = {
-    // username is ALWAYS required by the backend to identify the user.
     username: session.user.username,
   };
 
   if (fullName.trim() !== currentFullName) patch.fullName = fullName.trim();
   if (email.trim() !== currentEmail) patch.email = email.trim();
 
-  // If nothing changed beyond username, return success without a network call.
+  // Nothing changed — short-circuit without a network call.
   if (!patch.fullName && !patch.email) {
     return { status: "success" };
   }
 
   try {
     await goApi.updateUser(patch);
+
+    // FIX: Patch the session cookie so the sidebar shows the new data
+    // immediately. Without this, the old name/email persists until logout.
+    const sessionPatch: Partial<{ full_name: string; email: string }> = {};
+    if (patch.fullName) sessionPatch.full_name = patch.fullName;
+    if (patch.email) sessionPatch.email = patch.email;
+    await patchSessionUser(sessionPatch);
+
+    // Revalidate all pages that display user data from the session.
     revalidatePath("/settings");
-    revalidatePath("/dashboard"); // sidebar shows user.full_name
+    revalidatePath("/dashboard");
+    revalidatePath("/", "layout"); // sidebar lives in the dashboard layout
+
     return { status: "success" };
   } catch (err) {
     return handleApiError(err);
@@ -172,7 +177,6 @@ export async function updateProfileAction(
 
 // ─── Change Password
 // PATCH /v1/users — requires `username` alongside the new password.
-// The backend validates: username matches auth token, password >= 8 chars.
 export async function changePasswordAction(
   _prev: ActionState,
   formData: FormData,
@@ -202,7 +206,6 @@ export async function changePasswordAction(
   }
 
   try {
-    // Send username + password — the backend requires both.
     await goApi.updateUser({
       username: session.user.username,
       password: parsed.data.password,
