@@ -48,29 +48,29 @@ export function AccountListCard({ account }: AccountListCardProps) {
   return (
     <article
       className={cn(
-        "flex flex-col justify-between rounded-[28px] border p-6 shadow-card transition-all duration-200 hover:scale-[1.01]",
+        "flex flex-col justify-between rounded-[22px] border p-4 shadow-card transition-all duration-200 hover:scale-[1.01] sm:rounded-[28px] sm:p-6",
         THEMES[theme],
       )}
     >
       {/* Top row */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <p
             className={cn(
-              "font-mono text-2xs uppercase tracking-[0.3em]",
+              "font-mono text-[10px] uppercase tracking-[0.3em]",
               LABEL_COLORS[theme],
             )}
           >
             {account.currency} account
           </p>
-          <h3 className="mt-2 font-display text-xl text-ash-50">
+          <h3 className="mt-1.5 truncate font-display text-lg text-ash-50 sm:text-xl">
             {config.label}
           </h3>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {/* Active badge */}
-          <div className="flex items-center gap-1.5 rounded-full border border-white/8 bg-white/3 px-2.5 py-1">
+          <div className="hidden items-center gap-1.5 rounded-full border border-white/8 bg-white/3 px-2.5 py-1 sm:flex">
             <span
               className={cn("h-1.5 w-1.5 rounded-full", DOT_COLORS[theme])}
             />
@@ -79,7 +79,6 @@ export function AccountListCard({ account }: AccountListCardProps) {
             </span>
           </div>
 
-          {/* Options menu — client island */}
           <DeleteAccountButton
             accountId={account.id}
             accountLabel={config.label}
@@ -88,17 +87,17 @@ export function AccountListCard({ account }: AccountListCardProps) {
       </div>
 
       {/* Balance */}
-      <div className="mt-6">
-        <p className="font-mono text-2xs uppercase tracking-[0.28em] text-ash-600">
+      <div className="mt-4 sm:mt-6">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-ash-600">
           Available balance
         </p>
-        <p className="mt-1.5 font-display text-[1.9rem] leading-none text-ash-50">
+        <p className="mt-1 font-display text-[1.5rem] leading-none text-ash-50 sm:text-[1.9rem]">
           {balance}
         </p>
       </div>
 
       {/* Footer */}
-      <div className="mt-6 flex items-center justify-between border-t border-white/6 pt-4">
+      <div className="mt-4 flex items-center justify-between border-t border-white/6 pt-3 sm:mt-6 sm:pt-4">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ash-600">
             Acct ID
