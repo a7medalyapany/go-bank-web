@@ -24,9 +24,21 @@ interface NavLinkProps {
   label: string;
   iconKey: NavIconKey;
   exact?: boolean;
+  /**
+   * Optional callback fired after the link is clicked.
+   * Used by MobileSidebar to close the drawer on navigation.
+   * Desktop sidebar omits this — no-op by default.
+   */
+  onNavigate?: () => void;
 }
 
-export function NavLink({ href, label, iconKey, exact = false }: NavLinkProps) {
+export function NavLink({
+  href,
+  label,
+  iconKey,
+  exact = false,
+  onNavigate,
+}: NavLinkProps) {
   const pathname = usePathname();
   const active = exact ? pathname === href : pathname.startsWith(href);
   const Icon = ICON_MAP[iconKey];
@@ -35,6 +47,7 @@ export function NavLink({ href, label, iconKey, exact = false }: NavLinkProps) {
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
+      onClick={onNavigate}
       className={cn(
         "flex items-center justify-between rounded-2xl border px-4 py-3 transition-all duration-300",
         active
@@ -57,7 +70,7 @@ export function NavLink({ href, label, iconKey, exact = false }: NavLinkProps) {
           {label}
         </span>
       </span>
-      {active ? <span className="h-2 w-2 rounded-full bg-gold-400" /> : null}
+      {active && <span className="h-2 w-2 rounded-full bg-gold-400" />}
     </Link>
   );
 }
