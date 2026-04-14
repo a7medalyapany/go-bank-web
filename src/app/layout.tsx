@@ -38,6 +38,7 @@ export const metadata: Metadata = {
     title: "GoBank — Private Banking",
     description: "Secure multi-currency banking with atomic transfers.",
     type: "website",
+    images: ["/open-graph.png"],
   },
   // Prevent search engines from indexing auth/private routes
   robots: {
