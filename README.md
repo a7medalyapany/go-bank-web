@@ -8,7 +8,7 @@ Built with a Revolut/Wise-inspired design language on a dark obsidian + gold pal
 
 ## Overview
 
-GoBank Web is a full-featured banking dashboard that connects to the [GoBank API](../README.md) (Go + gRPC-Gateway). It handles authentication, account management, fund transfers, and real-time activity feeds — all rendered with a Next.js App Router architecture that prioritises server-side data fetching and minimal client-side JavaScript.
+GoBank Web is a full-featured banking dashboard that connects to the [GoBank API](https://github.com/a7medalyapany/GoBank/blob/main/README.md) (Go + gRPC-Gateway). It handles authentication, account management, fund transfers, and real-time activity feeds — all rendered with a Next.js App Router architecture that prioritises server-side data fetching and minimal client-side JavaScript.
 
 ---
 
