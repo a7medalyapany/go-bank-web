@@ -42,16 +42,9 @@ export function DeleteAccountButton({
 
       if (result.ok) {
         closeConfirm();
-        // FIX: Show success toast THEN refresh. This ensures the user sees
-        // feedback before the page re-renders, preventing a jarring blank state.
         toast.success(`${accountLabel} closed successfully.`);
-        // router.refresh() re-fetches RSC data so the deleted card disappears.
-        // The Server Action already called revalidatePath("/accounts").
         router.refresh();
       } else {
-        // FIX: Close confirm first, THEN show error. Previously the dialog
-        // would close but the toast appeared before the dialog animation
-        // finished, which felt janky.
         closeConfirm();
         toast.error(result.message);
       }
@@ -74,9 +67,6 @@ export function DeleteAccountButton({
 
         {menuOpen && (
           <>
-            {/* FIX: Added pointer-events overlay to catch outside clicks reliably.
-                Previously this would sometimes fail if the user clicked on
-                a child element of the overlay. */}
             <div
               className="fixed inset-0 z-10"
               onClick={() => setMenuOpen(false)}
@@ -117,21 +107,25 @@ export function DeleteAccountButton({
             className="relative w-full max-w-sm rounded-[24px] border border-obsidian-600 bg-obsidian-900 p-7 shadow-[0_24px_80px_rgba(0,0,0,0.6)] animate-fade-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-danger/20 bg-danger/8">
-              <AlertTriangle
-                className="h-5 w-5 text-danger"
-                strokeWidth={1.5}
-              />
-            </div>
+            {/* centered content */}
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-danger/20 bg-danger/8">
+                <AlertTriangle
+                  className="h-5 w-5 text-danger"
+                  strokeWidth={1.5}
+                />
+              </div>
 
-            <h3 className="mt-5 font-display text-xl text-ash-50">
-              Close this account?
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-ash-400">
-              <span className="text-ash-200">{accountLabel}</span> will be
-              permanently deleted. This cannot be undone. Make sure the balance
-              is zero before proceeding.
-            </p>
+              <h3 className="mt-5 font-display text-xl text-ash-50">
+                Close this account?
+              </h3>
+
+              <p className="mt-2 text-sm leading-relaxed text-ash-400">
+                <span className="text-ash-200">{accountLabel}</span> will be
+                permanently deleted. This cannot be undone. Make sure the
+                balance is zero before proceeding.
+              </p>
+            </div>
 
             <div className="mt-6 flex gap-3">
               <Button
