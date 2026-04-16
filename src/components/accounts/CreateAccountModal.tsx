@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useActionState, useCallback } from "react";
+import {
+  useActionState,
+  useOptimistic,
+  useTransition,
+  useCallback,
+} from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus } from "lucide-react";
 import { createAccountAction } from "@/lib/actions/accounts";
@@ -48,55 +53,53 @@ export function CreateAccountModal({
   limitReached,
 }: CreateAccountModalProps) {
   const router = useRouter();
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const [state, formAction, pending] = useActionState(
-    createAccountAction,
-    INITIAL,
-  );
+  const [, startTransition] = useTransition();
+  const [optimisticCurrency, addOptimistic] =
+    useOptimistic<SupportedCurrency | null>(null);
 
-  // FIX: Memoize dismiss to avoid effect dependency churn.
-  const dismiss = useCallback(() => {
-    dialogRef.current?.close();
-    // FIX: Replace router.back() with router.push() to /accounts.
-    // router.back() is fragile — if the user navigated directly to /accounts/new
-    // (hard refresh, shared link), back() would take them out of the app.
-    // router.push("/accounts") is predictable and always correct.
-    router.push("/accounts");
-  }, [router]);
-
-  // Open on mount
-  useEffect(() => {
-    dialogRef.current?.showModal();
+  // ── React 19: ref callback fires on mount — no useEffect needed
+  const dialogRefCallback = useCallback((node: HTMLDialogElement | null) => {
+    node?.showModal();
   }, []);
 
-  // Close on ESC via the native dialog cancel event
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    el.addEventListener("cancel", dismiss);
-    return () => el.removeEventListener("cancel", dismiss);
-  }, [dismiss]);
+  // ── Wrap the server action: optimistic update + transition-aware navigation
+  async function wrappedAction(prev: ActionState, data: FormData) {
+    // Instantly reflect which currency is "creating"
+    addOptimistic(data.get("currency") as SupportedCurrency);
 
-  // On success: dismiss and refresh server data
-  useEffect(() => {
-    if (state.status === "success") {
-      // FIX: router.refresh() re-fetches RSC data so the new account card
-      // appears immediately. We call it BEFORE dismiss so the data is fresh
-      // when the accounts page re-renders.
-      router.refresh();
-      dismiss();
+    const result = await createAccountAction(prev, data);
+
+    if (result.status === "success") {
+      // Navigate inside a transition so React can batch + deprioritise
+      startTransition(() => {
+        router.back();
+        router.refresh();
+      });
     }
-  }, [state.status, router, dismiss]);
+
+    return result;
+  }
+
+  const [state, formAction, pending] = useActionState(wrappedAction, INITIAL);
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
-    if (e.target === dialogRef.current) dismiss();
+    if (e.target === e.currentTarget) router.back();
   }
+
+  // ── BUG FIX: once we've submitted successfully, ignore the incoming
+  // limitReached=true prop that arrives from the parent re-render.
+  // Without this guard the "limit reached" UI flashes for ~150ms before
+  // the modal unmounts, because the parent sees the new account immediately
+  // but the router.back() transition hasn't committed yet.
+  const showLimitReached = limitReached && state.status !== "success";
 
   const globalError = state.status === "error" ? state.message : undefined;
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={dialogRefCallback}
+      // onCancel is a first-class JSX prop — replaces the useEffect listener
+      onCancel={() => router.back()}
       onClick={handleBackdropClick}
       className={cn(
         "fixed inset-0 m-0 h-full w-full max-w-none max-h-none p-0",
@@ -111,7 +114,7 @@ export function CreateAccountModal({
       >
         <button
           type="button"
-          onClick={dismiss}
+          onClick={() => router.back()}
           aria-label="Close"
           className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-xl border border-obsidian-600 bg-obsidian-800 text-ash-500 transition-colors hover:border-obsidian-500 hover:text-ash-200"
         >
@@ -126,13 +129,13 @@ export function CreateAccountModal({
             Open an account
           </h2>
           <p className="mt-1.5 text-sm text-ash-500">
-            {limitReached
+            {showLimitReached
               ? "You've reached the 3-account limit."
               : "Choose a currency for your new account."}
           </p>
         </div>
 
-        {limitReached ? (
+        {showLimitReached ? (
           <div className="rounded-xl border border-obsidian-600 bg-obsidian-800/60 px-4 py-4 text-sm text-ash-400">
             All supported currencies (USD, EUR, EGP) already have accounts.
           </div>
@@ -154,6 +157,8 @@ export function CreateAccountModal({
 
                 {availableCurrencies.map((currency) => {
                   const meta = CURRENCY_META[currency];
+                  const isOptimistic = optimisticCurrency === currency;
+
                   return (
                     <label
                       key={currency}
@@ -161,6 +166,7 @@ export function CreateAccountModal({
                         "flex cursor-pointer items-center gap-4 mt-2 rounded-2xl border p-4 transition-all duration-200",
                         meta.colorClass,
                         "has-[:checked]:ring-2 has-[:checked]:ring-gold-500/40",
+                        isOptimistic && "opacity-60 pointer-events-none",
                       )}
                     >
                       <input
@@ -171,14 +177,19 @@ export function CreateAccountModal({
                         className="sr-only"
                       />
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/4 font-display text-lg text-ash-200">
-                        {meta.symbol}
+                        {isOptimistic ? (
+                          // tiny inline spinner for the optimistic currency
+                          <span className="block h-4 w-4 rounded-full border-2 border-ash-500 border-t-ash-200 animate-spin" />
+                        ) : (
+                          meta.symbol
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-ash-100">
                           {meta.label}
                         </p>
                         <p className="text-xs text-ash-500">
-                          {meta.description}
+                          {isOptimistic ? "Creating…" : meta.description}
                         </p>
                       </div>
                       <span className="font-mono text-xs uppercase tracking-[0.2em] text-ash-500">
@@ -195,7 +206,7 @@ export function CreateAccountModal({
                   variant="secondary"
                   size="md"
                   className="flex-1"
-                  onClick={dismiss}
+                  onClick={() => router.back()}
                   disabled={pending}
                 >
                   Cancel
